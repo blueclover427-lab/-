@@ -158,13 +158,13 @@
 const firebaseConfig = {
   apiKey: "AIzaSyBQ9xAaHvj8EetPngUcikGgfXog9-2kvhE",
   authDomain: "household-ledger-c5ff8.firebaseapp.com",
+  databaseURL: "https://household-ledger-c5ff8-default-rtdb.firebaseio.com",
   projectId: "household-ledger-c5ff8",
   storageBucket: "household-ledger-c5ff8.firebasestorage.app",
   messagingSenderId: "671578590446",
   appId: "1:671578590446:web:a8463d32a79cf9af17f7ff",
   measurementId: "G-JVX0VJ7778"
 };
-
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
     const entriesRef = ref(db, "ledgerEntries"); // 한 가정(부부) 공용 노드
