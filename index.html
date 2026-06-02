@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>실시간 부부 가계부</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
-  <main class="max-w-5xl mx-auto p-4 space-y-4">
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
 
-    <!-- 로그인 영역 -->
     <section id="authSection" class="max-w-md mx-auto bg-white rounded-xl shadow p-4 mt-6">
       <h2 class="text-lg font-bold mb-4">로그인 / 회원가입</h2>
       <div class="space-y-3">
@@ -19,14 +19,10 @@
           <button id="loginBtn" class="flex-1 bg-indigo-600 text-white rounded-lg px-3 py-2">로그인</button>
           <button id="signupBtn" class="flex-1 border rounded-lg px-3 py-2">회원가입</button>
         </div>
-        <p class="text-xs text-slate-500">
-          처음이면 회원가입을 먼저 누르세요. 그 다음부터는 로그인만 하면 됩니다.
-        </p>
         <p id="authStatus" class="text-sm text-slate-500">로그인이 필요합니다.</p>
       </div>
     </section>
 
-    <!-- 가계부 본문 -->
     <section id="appSection" class="hidden space-y-6">
       <header class="flex justify-between items-center">
         <div>
@@ -35,9 +31,7 @@
         </div>
         <div class="flex items-center gap-3">
           <span id="sync-status" class="text-xs text-slate-500">연결 중...</span>
-          <button id="logoutBtn" class="px-3 py-1.5 border rounded-lg text-xs text-slate-600">
-            로그아웃
-          </button>
+          <button id="logoutBtn" class="px-3 py-1.5 border rounded-lg text-xs text-slate-600">로그아웃</button>
         </div>
       </header>
 
@@ -61,19 +55,20 @@
       </section>
 
       <section class="bg-white rounded-xl shadow p-4 space-y-4">
-        <h2 class="text-sm font-bold text-slate-800">새 지출 입력</h2>
+        <div class="flex justify-between items-center">
+          <h2 id="formTitle" class="text-sm font-bold text-slate-800">새 지출 입력</h2>
+          <span id="editBadge" class="hidden text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">수정 모드</span>
+        </div>
+
         <form id="entryForm" class="grid md:grid-cols-2 gap-3 text-xs">
           <div>
             <label class="block mb-1 text-slate-600">날짜</label>
-            <input type="date" id="fDate"
-                   class="w-full border rounded-lg px-2 py-1.5 text-sm"
-                   required />
+            <input type="date" id="fDate" class="w-full border rounded-lg px-2 py-1.5 text-sm" required />
           </div>
           <div>
             <label class="block mb-1 text-slate-600">카테고리</label>
             <div class="grid gap-1.5">
-              <select id="fCategoryPreset"
-                      class="w-full border rounded-lg px-2 py-1.5 text-sm">
+              <select id="fCategoryPreset" class="w-full border rounded-lg px-2 py-1.5 text-sm">
                 <option value="">드롭박스에서 선택</option>
                 <option value="식비">식비</option>
                 <option value="육아">육아</option>
@@ -88,24 +83,17 @@
                 <option value="보험">보험</option>
                 <option value="기타">기타</option>
               </select>
-              <input id="fCategory"
-                     class="w-full border rounded-lg px-2 py-1.5 text-sm"
-                     placeholder="또는 직접 입력"
-                     required />
+              <input id="fCategory" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="또는 직접 입력" required />
             </div>
           </div>
           <div>
             <label class="block mb-1 text-slate-600">지출처</label>
-            <input id="fPlace"
-                   class="w-full border rounded-lg px-2 py-1.5 text-sm"
-                   placeholder="예: 이마트, 약국"
-                   required />
+            <input id="fPlace" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="예: 이마트, 약국" required />
           </div>
           <div>
             <label class="block mb-1 text-slate-600">결제수단</label>
             <div class="grid gap-1.5">
-              <select id="fMethodPreset"
-                      class="w-full border rounded-lg px-2 py-1.5 text-sm">
+              <select id="fMethodPreset" class="w-full border rounded-lg px-2 py-1.5 text-sm">
                 <option value="">드롭박스에서 선택</option>
                 <option value="국민카드">국민카드</option>
                 <option value="하나카드">하나카드</option>
@@ -113,37 +101,53 @@
                 <option value="계좌이체">계좌이체</option>
                 <option value="현금">현금</option>
               </select>
-              <input id="fMethod"
-                     class="w-full border rounded-lg px-2 py-1.5 text-sm"
-                     placeholder="또는 직접 입력"
-                     required />
+              <input id="fMethod" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="또는 직접 입력" required />
             </div>
           </div>
           <div>
             <label class="block mb-1 text-slate-600">금액 (원)</label>
-            <input id="fAmount"
-                   class="w-full border rounded-lg px-2 py-1.5 text-sm text-right"
-                   placeholder="0"
-                   inputmode="numeric"
-                   required />
+            <input id="fAmount" class="w-full border rounded-lg px-2 py-1.5 text-sm text-right" placeholder="0" inputmode="numeric" required />
           </div>
           <div>
             <label class="block mb-1 text-slate-600">메모</label>
-            <input id="fMemo"
-                   class="w-full border rounded-lg px-2 py-1.5 text-sm"
-                   placeholder="선택 사항" />
+            <input id="fMemo" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="선택 사항" />
           </div>
           <div class="md:col-span-2 flex gap-2 mt-2">
-            <button type="submit"
-                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg">
+            <button type="submit" id="submitBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg">
               저장하기
             </button>
-            <button type="button" id="btnReset"
-                    class="px-3 py-2 border rounded-lg text-xs text-slate-600">
+            <button type="button" id="btnCancelEdit" class="hidden px-3 py-2 border rounded-lg text-xs text-amber-700 border-amber-300">
+              수정 취소
+            </button>
+            <button type="button" id="btnReset" class="px-3 py-2 border rounded-lg text-xs text-slate-600">
               폼 초기화
             </button>
           </div>
         </form>
+      </section>
+
+      <section class="bg-white rounded-xl shadow p-4 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <h2 class="text-sm font-bold text-slate-800">지출 그래프 요약</h2>
+          <div class="flex gap-2 text-xs">
+            <select id="periodType" class="border rounded-lg px-2 py-1.5">
+              <option value="month">월별 보기</option>
+              <option value="year">연도별 보기</option>
+            </select>
+            <select id="periodValue" class="border rounded-lg px-2 py-1.5"></select>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="border rounded-xl p-3">
+            <h3 class="text-xs font-semibold text-slate-600 mb-2">카테고리별 합계</h3>
+            <canvas id="categoryChart" height="180"></canvas>
+          </div>
+          <div class="border rounded-xl p-3">
+            <h3 class="text-xs font-semibold text-slate-600 mb-2">기간 흐름</h3>
+            <canvas id="trendChart" height="180"></canvas>
+          </div>
+        </div>
       </section>
 
       <section class="bg-white rounded-xl shadow p-4">
@@ -173,7 +177,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-    import { getDatabase, ref, push, set, onValue, remove } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+    import { getDatabase, ref, push, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
     import {
       getAuth,
       onAuthStateChanged,
@@ -202,6 +206,10 @@
     const fmt = (n) => (Number(n) || 0).toLocaleString("ko-KR") + "원";
 
     let unsubscribeEntries = null;
+    let currentRows = [];
+    let editingId = null;
+    let categoryChart = null;
+    let trendChart = null;
 
     function applyPreset(selectId, inputId) {
       const sel = $(selectId);
@@ -209,11 +217,253 @@
       if (sel && input && sel.value) input.value = sel.value;
     }
 
+    function todayStr() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
     function resetForm() {
       $("entryForm").reset();
       $("fCategoryPreset").value = "";
       $("fMethodPreset").value = "";
-      $("fDate").value = new Date().toISOString().slice(0, 10);
+      $("fDate").value = todayStr();
+      exitEditMode();
+    }
+
+    function enterEditMode(row) {
+      editingId = row.id;
+      $("formTitle").textContent = "지출 내역 수정";
+      $("editBadge").classList.remove("hidden");
+      $("btnCancelEdit").classList.remove("hidden");
+      $("submitBtn").textContent = "수정 저장";
+
+      $("fDate").value = row.date || todayStr();
+      $("fCategory").value = row.category || "";
+      $("fCategoryPreset").value = row.category || "";
+      $("fPlace").value = row.place || "";
+      $("fMethod").value = row.method || "";
+      $("fMethodPreset").value = row.method || "";
+      $("fAmount").value = String(row.amount || "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      $("fMemo").value = row.memo || "";
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function exitEditMode() {
+      editingId = null;
+      $("formTitle").textContent = "새 지출 입력";
+      $("editBadge").classList.add("hidden");
+      $("btnCancelEdit").classList.add("hidden");
+      $("submitBtn").textContent = "저장하기";
+    }
+
+    function getCurrentMonthRows(rows) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      return rows.filter(r => (r.date || "").startsWith(`${y}-${m}`));
+    }
+
+    function updateKpis(rows) {
+      const monthRows = getCurrentMonthRows(rows);
+      const total = monthRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+      $("row-count").textContent = `${rows.length}건`;
+      $("kpi-total").textContent = fmt(total);
+      $("kpi-count").textContent = `${monthRows.length}건`;
+      $("kpi-avg").textContent = monthRows.length ? fmt(Math.round(total / monthRows.length)) : "0원";
+      $("kpi-updated").textContent = rows.length ? new Date().toLocaleString("ko-KR") : "-";
+    }
+
+    function groupByCategory(rows) {
+      const map = {};
+      rows.forEach(r => {
+        const key = r.category || "기타";
+        map[key] = (map[key] || 0) + (Number(r.amount) || 0);
+      });
+      return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    }
+
+    function buildMonthOptions(rows) {
+      const months = [...new Set(rows.map(r => (r.date || "").slice(0, 7)).filter(Boolean))].sort().reverse();
+      return months;
+    }
+
+    function buildYearOptions(rows) {
+      const years = [...new Set(rows.map(r => (r.date || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+      return years;
+    }
+
+    function fillPeriodOptions(rows) {
+      const type = $("periodType").value;
+      const options = type === "month" ? buildMonthOptions(rows) : buildYearOptions(rows);
+      const select = $("periodValue");
+      const current = select.value;
+
+      select.innerHTML = "";
+      options.forEach(v => {
+        const option = document.createElement("option");
+        option.value = v;
+        option.textContent = type === "month" ? `${v} 기준` : `${v}년 기준`;
+        select.appendChild(option);
+      });
+
+      if (options.includes(current)) {
+        select.value = current;
+      } else if (options.length) {
+        select.value = options[0];
+      }
+    }
+
+    function getFilteredRows(rows) {
+      const type = $("periodType").value;
+      const value = $("periodValue").value;
+      if (!value) return [];
+      if (type === "month") return rows.filter(r => (r.date || "").startsWith(value));
+      return rows.filter(r => (r.date || "").startsWith(value));
+    }
+
+    function buildTrendData(rows, type, selectedValue) {
+      if (type === "month") {
+        const daysInMonth = new Date(selectedValue + "-01");
+        const y = daysInMonth.getFullYear();
+        const m = daysInMonth.getMonth();
+        const lastDay = new Date(y, m + 1, 0).getDate();
+
+        const labels = Array.from({ length: lastDay }, (_, i) => String(i + 1));
+        const sums = Array(lastDay).fill(0);
+
+        rows.forEach(r => {
+          const d = r.date || "";
+          const day = Number(d.slice(8, 10));
+          if (day >= 1 && day <= lastDay) sums[day - 1] += Number(r.amount) || 0;
+        });
+
+        return { labels, sums, label: `${selectedValue} 일별 지출` };
+      }
+
+      const labels = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
+      const sums = Array(12).fill(0);
+
+      rows.forEach(r => {
+        const month = Number((r.date || "").slice(5, 7));
+        if (month >= 1 && month <= 12) sums[month - 1] += Number(r.amount) || 0;
+      });
+
+      return { labels, sums, label: `${selectedValue} 월별 지출` };
+    }
+
+    function renderCharts(rows) {
+      fillPeriodOptions(rows);
+      const type = $("periodType").value;
+      const selected = $("periodValue").value;
+      const filtered = getFilteredRows(rows);
+      const categoryData = groupByCategory(filtered);
+      const trendData = buildTrendData(filtered, type, selected);
+
+      if (categoryChart) categoryChart.destroy();
+      if (trendChart) trendChart.destroy();
+
+      const catCtx = $("categoryChart");
+      categoryChart = new Chart(catCtx, {
+        type: "bar",
+        data: {
+          labels: categoryData.map(v => v[0]),
+          datasets: [{
+            label: "카테고리별 지출",
+            data: categoryData.map(v => v[1]),
+            backgroundColor: "#6366f1"
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => Number(value).toLocaleString("ko-KR") + "원"
+              }
+            }
+          }
+        }
+      });
+
+      const trendCtx = $("trendChart");
+      trendChart = new Chart(trendCtx, {
+        type: "line",
+        data: {
+          labels: trendData.labels,
+          datasets: [{
+            label: trendData.label,
+            data: trendData.sums,
+            borderColor: "#0f766e",
+            backgroundColor: "rgba(15, 118, 110, 0.15)",
+            fill: true,
+            tension: 0.25
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => Number(value).toLocaleString("ko-KR") + "원"
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTable(rows) {
+      const tbody = $("tableBody");
+      tbody.innerHTML = "";
+
+      rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50";
+
+        tr.innerHTML = `
+          <td class="px-2 py-1 whitespace-nowrap">${r.date || "-"}</td>
+          <td class="px-2 py-1 whitespace-nowrap">${r.category || "-"}</td>
+          <td class="px-2 py-1 whitespace-nowrap">${r.place || "-"}</td>
+          <td class="px-2 py-1 whitespace-nowrap">${r.method || "-"}</td>
+          <td class="px-2 py-1 text-right font-semibold">${fmt(r.amount)}</td>
+          <td class="px-2 py-1 whitespace-nowrap">${r.memo || "-"}</td>
+          <td class="px-2 py-1 text-center">
+            <div class="flex justify-center gap-1">
+              <button data-edit="${r.id}" class="text-[10px] text-indigo-600 border border-indigo-500 px-1.5 py-0.5 rounded edit-btn">수정</button>
+              <button data-id="${r.id}" class="text-[10px] text-rose-500 border border-rose-500 px-1.5 py-0.5 rounded delete-btn">삭제</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.querySelectorAll(".edit-btn").forEach((btn) => {
+        btn.onclick = () => {
+          const id = btn.getAttribute("data-edit");
+          const row = currentRows.find(r => r.id === id);
+          if (row) enterEditMode(row);
+        };
+      });
+
+      document.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-id");
+          if (confirm("이 내역을 삭제할까요?")) {
+            try {
+              await remove(ref(db, "ledgerEntries/" + id));
+              if (editingId === id) resetForm();
+            } catch (err) {
+              console.error(err);
+              alert("삭제 실패: " + err.message);
+            }
+          }
+        };
+      });
     }
 
     function bindAppEvents() {
@@ -226,6 +476,10 @@
       });
 
       $("btnReset").addEventListener("click", resetForm);
+      $("btnCancelEdit").addEventListener("click", resetForm);
+
+      $("periodType").addEventListener("change", () => renderCharts(currentRows));
+      $("periodValue").addEventListener("change", () => renderCharts(currentRows));
 
       $("entryForm").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -249,17 +503,21 @@
         }
 
         try {
-          const newRef = push(entriesRef);
-          await set(newRef, {
-            date,
-            category,
-            place,
-            method,
-            amount: amountNum,
-            memo,
-            createdAt: Date.now(),
-            createdBy: user.email || ""
-          });
+          if (editingId) {
+            await update(ref(db, "ledgerEntries/" + editingId), {
+              date, category, place, method, amount: amountNum, memo,
+              updatedAt: Date.now(),
+              updatedBy: user.email || ""
+            });
+          } else {
+            const newRef = push(entriesRef);
+            await set(newRef, {
+              date, category, place, method,
+              amount: amountNum, memo,
+              createdAt: Date.now(),
+              createdBy: user.email || ""
+            });
+          }
           resetForm();
         } catch (err) {
           console.error(err);
@@ -270,11 +528,7 @@
       $("loginBtn").addEventListener("click", async () => {
         const email = $("email").value.trim();
         const password = $("password").value;
-
-        if (!email || !password) {
-          alert("이메일과 비밀번호를 입력해주세요.");
-          return;
-        }
+        if (!email || !password) return alert("이메일과 비밀번호를 입력해주세요.");
 
         try {
           await signInWithEmailAndPassword(auth, email, password);
@@ -287,15 +541,11 @@
       $("signupBtn").addEventListener("click", async () => {
         const email = $("email").value.trim();
         const password = $("password").value;
-
-        if (!email || !password) {
-          alert("이메일과 비밀번호를 입력해주세요.");
-          return;
-        }
+        if (!email || !password) return alert("이메일과 비밀번호를 입력해주세요.");
 
         try {
           await createUserWithEmailAndPassword(auth, email, password);
-          alert("회원가입 완료. 이제 같은 정보로 로그인해서 사용하세요.");
+          alert("회원가입 완료. 이제 로그인해서 사용하세요.");
         } catch (err) {
           console.error(err);
           alert("회원가입 실패: " + err.message);
@@ -317,59 +567,17 @@
 
       unsubscribeEntries = onValue(entriesRef, (snap) => {
         const data = snap.val() || {};
-        const rows = Object.entries(data)
+        currentRows = Object.entries(data)
           .map(([id, v]) => ({ id, ...v }))
           .sort((a, b) => {
-            if (a.date === b.date) return (b.createdAt || 0) - (a.createdAt || 0);
+            if (a.date === b.date) return (b.createdAt || b.updatedAt || 0) - (a.createdAt || a.updatedAt || 0);
             return a.date < b.date ? 1 : -1;
           });
 
-        const tbody = $("tableBody");
-        tbody.innerHTML = "";
-        let total = 0;
-
-        rows.forEach((r) => {
-          total += Number(r.amount) || 0;
-          const tr = document.createElement("tr");
-          tr.className = "hover:bg-slate-50";
-
-          tr.innerHTML = `
-            <td class="px-2 py-1 whitespace-nowrap">${r.date || "-"}</td>
-            <td class="px-2 py-1 whitespace-nowrap">${r.category || "-"}</td>
-            <td class="px-2 py-1 whitespace-nowrap">${r.place || "-"}</td>
-            <td class="px-2 py-1 whitespace-nowrap">${r.method || "-"}</td>
-            <td class="px-2 py-1 text-right font-semibold">${fmt(r.amount)}</td>
-            <td class="px-2 py-1 whitespace-nowrap">${r.memo || "-"}</td>
-            <td class="px-2 py-1 text-center">
-              <button data-id="${r.id}"
-                class="text-[10px] text-rose-500 border border-rose-500 px-1.5 py-0.5 rounded delete-btn">
-                삭제
-              </button>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
-
-        $("row-count").textContent = `${rows.length}건`;
-        $("kpi-total").textContent = fmt(total);
-        $("kpi-count").textContent = `${rows.length}건`;
-        $("kpi-avg").textContent = rows.length ? fmt(Math.round(total / rows.length)) : "0원";
-        $("kpi-updated").textContent = rows.length ? new Date().toLocaleString("ko-KR") : "-";
+        renderTable(currentRows);
+        updateKpis(currentRows);
+        renderCharts(currentRows);
         $("sync-status").textContent = "실시간 연결됨";
-
-        document.querySelectorAll(".delete-btn").forEach((btn) => {
-          btn.onclick = async () => {
-            const id = btn.getAttribute("data-id");
-            if (confirm("이 내역을 삭제할까요?")) {
-              try {
-                await remove(ref(db, "ledgerEntries/" + id));
-              } catch (err) {
-                console.error(err);
-                alert("삭제 실패: " + err.message);
-              }
-            }
-          };
-        });
       }, (err) => {
         console.error(err);
         $("sync-status").textContent = "연결 오류";
@@ -377,7 +585,7 @@
     }
 
     bindAppEvents();
-    $("fDate").value = new Date().toISOString().slice(0, 10);
+    $("fDate").value = todayStr();
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
