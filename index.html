@@ -160,10 +160,23 @@
         </div>
       </section>
 
-      <section class="bg-white rounded-xl shadow p-4">
-        <div class="flex justify-between items-center mb-2 text-xs">
+      <section class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="flex justify-between items-center text-xs">
           <h2 class="font-bold text-slate-800">지출 내역</h2>
           <span id="row-count" class="text-slate-400">0건</span>
+        </div>
+
+        <div class="grid md:grid-cols-4 gap-2 text-xs">
+          <input id="listSearch" class="border rounded-lg px-3 py-2" placeholder="검색어 (지출처, 메모, 카테고리, 결제수단)" />
+          <select id="listCategoryFilter" class="border rounded-lg px-3 py-2">
+            <option value="">전체 카테고리</option>
+          </select>
+          <select id="listMethodFilter" class="border rounded-lg px-3 py-2">
+            <option value="">전체 결제수단</option>
+          </select>
+          <button id="btnClearListFilter" class="border rounded-lg px-3 py-2 text-slate-600">
+            필터 초기화
+          </button>
         </div>
 
         <div class="overflow-x-auto">
@@ -344,12 +357,61 @@
       }
     }
 
+    function fillListFilterOptions(rows) {
+      const categories = [...new Set(rows.map(r => r.category).filter(Boolean))].sort();
+      const methods = [...new Set(rows.map(r => r.method).filter(Boolean))].sort();
+
+      const catSelect = $("listCategoryFilter");
+      const methodSelect = $("listMethodFilter");
+      const currentCat = catSelect.value;
+      const currentMethod = methodSelect.value;
+
+      catSelect.innerHTML = '<option value="">전체 카테고리</option>';
+      methodSelect.innerHTML = '<option value="">전체 결제수단</option>';
+
+      categories.forEach(v => {
+        const option = document.createElement("option");
+        option.value = v;
+        option.textContent = v;
+        catSelect.appendChild(option);
+      });
+
+      methods.forEach(v => {
+        const option = document.createElement("option");
+        option.value = v;
+        option.textContent = v;
+        methodSelect.appendChild(option);
+      });
+
+      if (categories.includes(currentCat)) catSelect.value = currentCat;
+      if (methods.includes(currentMethod)) methodSelect.value = currentMethod;
+    }
+
     function getFilteredRows(rows) {
       const type = $("periodType").value;
       const value = $("periodValue").value;
       if (!value) return [];
       if (type === "month") return rows.filter(r => (r.date || "").startsWith(value));
       return rows.filter(r => (r.date || "").startsWith(value));
+    }
+
+    function getListFilteredRows(rows) {
+      const search = $("listSearch").value.trim().toLowerCase();
+      const category = $("listCategoryFilter").value;
+      const method = $("listMethodFilter").value;
+
+      return rows.filter(r => {
+        const matchesSearch =
+          !search ||
+          [r.place, r.memo, r.category, r.method, r.date]
+            .filter(Boolean)
+            .some(v => String(v).toLowerCase().includes(search));
+
+        const matchesCategory = !category || r.category === category;
+        const matchesMethod = !method || r.method === method;
+
+        return matchesSearch && matchesCategory && matchesMethod;
+      });
     }
 
     function buildTrendData(rows, type, selectedValue) {
@@ -607,9 +669,14 @@
 
     function renderFilteredView() {
       fillPeriodOptions(currentRows);
-      const filteredRows = getFilteredRows(currentRows);
-      renderCharts(filteredRows);
-      renderTable(filteredRows);
+
+      const periodFilteredRows = getFilteredRows(currentRows);
+      fillListFilterOptions(periodFilteredRows);
+
+      const listFilteredRows = getListFilteredRows(periodFilteredRows);
+
+      renderCharts(periodFilteredRows);
+      renderTable(listFilteredRows);
     }
 
     function bindAppEvents() {
@@ -626,6 +693,17 @@
 
       $("periodType").addEventListener("change", () => renderFilteredView());
       $("periodValue").addEventListener("change", () => renderFilteredView());
+
+      $("listSearch").addEventListener("input", () => renderFilteredView());
+      $("listCategoryFilter").addEventListener("change", () => renderFilteredView());
+      $("listMethodFilter").addEventListener("change", () => renderFilteredView());
+
+      $("btnClearListFilter").addEventListener("click", () => {
+        $("listSearch").value = "";
+        $("listCategoryFilter").value = "";
+        $("listMethodFilter").value = "";
+        renderFilteredView();
+      });
 
       window.addEventListener("resize", () => {
         renderFilteredView();
