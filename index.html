@@ -165,6 +165,7 @@
           <h2 class="font-bold text-slate-800">지출 내역</h2>
           <span id="row-count" class="text-slate-400">0건</span>
         </div>
+
         <div class="overflow-x-auto">
           <table class="min-w-full text-[11px]">
             <thead class="bg-slate-100 text-slate-600">
@@ -302,7 +303,6 @@
       const monthRows = getCurrentMonthRows(rows);
       const total = monthRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
-      $("row-count").textContent = `${rows.length}건`;
       $("kpi-total").textContent = fmt(total);
       $("kpi-count").textContent = `${monthRows.length}건`;
       $("kpi-avg").textContent = monthRows.length ? fmt(Math.round(total / monthRows.length)) : "0원";
@@ -387,14 +387,11 @@
       return { labels, sums, label: `${selectedValue} 월별 지출` };
     }
 
-    function renderCharts(rows) {
-      fillPeriodOptions(rows);
-
+    function renderCharts(rows, filteredRows) {
+      const categoryData = groupByCategory(filteredRows);
       const type = $("periodType").value;
       const selected = $("periodValue").value;
-      const filtered = getFilteredRows(rows);
-      const categoryData = groupByCategory(filtered);
-      const trendData = buildTrendData(filtered, type, selected);
+      const trendData = buildTrendData(filteredRows, type, selected);
 
       const categoryLabels = categoryData.map(v => v[0]);
       const categoryValues = categoryData.map(v => v[1]);
@@ -420,9 +417,7 @@
         plugins: [ChartDataLabels],
         options: {
           responsive: true,
-          layout: {
-            padding: 12
-          },
+          layout: { padding: 12 },
           cutout: "42%",
           plugins: {
             legend: { display: false },
@@ -433,7 +428,6 @@
                 const value = context.dataset.data[context.dataIndex];
                 const pct = total ? (value / total) * 100 : 0;
                 const desktopPlus = isDesktop() ? 2 : 0;
-
                 return {
                   weight: "700",
                   size: (pct >= 20 ? 12 : 10) + desktopPlus,
@@ -561,11 +555,12 @@
       });
     }
 
-    function renderTable(rows) {
+    function renderTable(filteredRows) {
       const tbody = $("tableBody");
       tbody.innerHTML = "";
+      $("row-count").textContent = `${filteredRows.length}건`;
 
-      rows.forEach((r) => {
+      filteredRows.forEach((r) => {
         const tr = document.createElement("tr");
         tr.className = "hover:bg-slate-50";
 
@@ -610,6 +605,13 @@
       });
     }
 
+    function renderFilteredView() {
+      fillPeriodOptions(currentRows);
+      const filteredRows = getFilteredRows(currentRows);
+      renderCharts(currentRows, filteredRows);
+      renderTable(filteredRows);
+    }
+
     function bindAppEvents() {
       $("fCategoryPreset").addEventListener("change", () => applyPreset("fCategoryPreset", "fCategory"));
       $("fMethodPreset").addEventListener("change", () => applyPreset("fMethodPreset", "fMethod"));
@@ -622,11 +624,11 @@
       $("btnReset").addEventListener("click", resetForm);
       $("btnCancelEdit").addEventListener("click", resetForm);
 
-      $("periodType").addEventListener("change", () => renderCharts(currentRows));
-      $("periodValue").addEventListener("change", () => renderCharts(currentRows));
+      $("periodType").addEventListener("change", () => renderFilteredView());
+      $("periodValue").addEventListener("change", () => renderFilteredView());
 
       window.addEventListener("resize", () => {
-        renderCharts(currentRows);
+        renderFilteredView();
       });
 
       $("entryForm").addEventListener("submit", async (e) => {
@@ -742,9 +744,8 @@
             return a.date < b.date ? 1 : -1;
           });
 
-        renderTable(currentRows);
         updateKpis(currentRows);
-        renderCharts(currentRows);
+        renderFilteredView();
         $("sync-status").textContent = "실시간 연결됨";
       }, (err) => {
         console.error(err);
