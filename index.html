@@ -11,16 +11,17 @@
 <body class="bg-slate-50 min-h-screen text-slate-800">
   <main class="max-w-6xl mx-auto p-4 space-y-4">
 
-    <section id="authSection" class="max-w-md mx-auto bg-white rounded-xl shadow p-4 mt-6">
-      <h2 class="text-lg font-bold mb-4">로그인 / 회원가입</h2>
+    <section id="authSection" class="max-w-md mx-auto bg-white rounded-xl shadow p-4 mt-8">
+      <h2 class="text-lg font-bold mb-4">로그인</h2>
       <div class="space-y-3">
         <input id="email" type="email" placeholder="이메일" class="w-full border rounded-lg px-3 py-2" />
         <input id="password" type="password" placeholder="비밀번호" class="w-full border rounded-lg px-3 py-2" />
-        <div class="flex gap-2">
-          <button id="loginBtn" class="flex-1 bg-indigo-600 text-white rounded-lg px-3 py-2">로그인</button>
-          <button id="signupBtn" class="flex-1 border rounded-lg px-3 py-2">회원가입</button>
-        </div>
-        <p id="authStatus" class="text-sm text-slate-500">등록된 부부 계정 2개만 회원가입 및 로그인할 수 있습니다.</p>
+        <button id="loginBtn" class="w-full bg-indigo-600 text-white rounded-lg px-3 py-2">
+          로그인
+        </button>
+        <p id="authStatus" class="text-sm text-slate-500">
+          등록된 부부 계정만 로그인할 수 있습니다.
+        </p>
       </div>
     </section>
 
@@ -206,7 +207,6 @@
       getAuth,
       onAuthStateChanged,
       signInWithEmailAndPassword,
-      createUserWithEmailAndPassword,
       signOut
     } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 
@@ -227,7 +227,7 @@
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => (Number(n) || 0).toLocaleString("ko-KR") + "원";
 
-    const ALLOWED_SIGNUP_EMAILS = [
+    const ALLOWED_EMAILS = [
       "blueclover427@gmail.com",
       "florencia_11@naver.com"
     ].map(v => v.trim().toLowerCase());
@@ -248,7 +248,7 @@
     };
 
     function isAllowedEmail(email) {
-      return ALLOWED_SIGNUP_EMAILS.includes(String(email || "").trim().toLowerCase());
+      return ALLOWED_EMAILS.includes(String(email || "").trim().toLowerCase());
     }
 
     function getCategoryColors(labels) {
@@ -400,7 +400,6 @@
       const type = $("periodType").value;
       const value = $("periodValue").value;
       if (!value) return [];
-      if (type === "month") return rows.filter(r => (r.date || "").startsWith(value));
       return rows.filter(r => (r.date || "").startsWith(value));
     }
 
@@ -781,7 +780,7 @@
         }
 
         if (!isAllowedEmail(email)) {
-          alert("허용된 가족 계정만 로그인할 수 있습니다.");
+          alert("등록된 부부 계정만 로그인할 수 있습니다.");
           return;
         }
 
@@ -790,29 +789,6 @@
         } catch (err) {
           console.error(err);
           alert("로그인 실패: " + err.message);
-        }
-      });
-
-      $("signupBtn").addEventListener("click", async () => {
-        const email = $("email").value.trim().toLowerCase();
-        const password = $("password").value;
-
-        if (!email || !password) {
-          alert("이메일과 비밀번호를 입력해주세요.");
-          return;
-        }
-
-        if (!isAllowedEmail(email)) {
-          alert("등록된 두 계정만 회원가입할 수 있습니다.");
-          return;
-        }
-
-        try {
-          await createUserWithEmailAndPassword(auth, email, password);
-          alert("회원가입 완료.");
-        } catch (err) {
-          console.error(err);
-          alert("회원가입 실패: " + err.message);
         }
       });
 
@@ -844,9 +820,12 @@
         updateKpis(currentRows);
         renderFilteredView();
         $("sync-status").textContent = "실시간 연결됨";
-      }, (err) => {
+      }, async (err) => {
         console.error(err);
         $("sync-status").textContent = "연결 오류";
+        if (auth.currentUser && !isAllowedEmail(auth.currentUser.email)) {
+          await signOut(auth);
+        }
       });
     }
 
