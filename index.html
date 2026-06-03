@@ -247,10 +247,6 @@
       return new Date().toISOString().slice(0, 10);
     }
 
-    function isDesktop() {
-      return window.innerWidth >= 1024;
-    }
-
     function applyPreset(selectId, inputId) {
       const sel = $(selectId);
       const input = $(inputId);
@@ -387,7 +383,7 @@
       return { labels, sums, label: `${selectedValue} 월별 지출` };
     }
 
-    function renderCharts(rows, filteredRows) {
+    function renderCharts(filteredRows) {
       const categoryData = groupByCategory(filteredRows);
       const type = $("periodType").value;
       const selected = $("periodValue").value;
@@ -427,10 +423,14 @@
               font: function(context) {
                 const value = context.dataset.data[context.dataIndex];
                 const pct = total ? (value / total) * 100 : 0;
-                const desktopPlus = isDesktop() ? 2 : 0;
+                const chartWidth = context.chart.width;
+                const isMobile = chartWidth < 520;
+
                 return {
                   weight: "700",
-                  size: (pct >= 20 ? 18 : 18) + desktopPlus,
+                  size: isMobile
+                    ? (pct >= 20 ? 12 : 10)
+                    : (pct >= 20 ? 18 : 15),
                   lineHeight: 1.15
                 };
               },
@@ -608,7 +608,7 @@
     function renderFilteredView() {
       fillPeriodOptions(currentRows);
       const filteredRows = getFilteredRows(currentRows);
-      renderCharts(currentRows, filteredRows);
+      renderCharts(filteredRows);
       renderTable(filteredRows);
     }
 
