@@ -20,7 +20,7 @@
           <button id="loginBtn" class="flex-1 bg-indigo-600 text-white rounded-lg px-3 py-2">로그인</button>
           <button id="signupBtn" class="flex-1 border rounded-lg px-3 py-2">회원가입</button>
         </div>
-        <p id="authStatus" class="text-sm text-slate-500">로그인이 필요합니다.</p>
+        <p id="authStatus" class="text-sm text-slate-500">등록된 부부 계정 2개만 회원가입 및 로그인할 수 있습니다.</p>
       </div>
     </section>
 
@@ -227,6 +227,11 @@
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => (Number(n) || 0).toLocaleString("ko-KR") + "원";
 
+    const ALLOWED_SIGNUP_EMAILS = [
+      "blueclover427@gmail.com",
+      "florencia_11@naver.com"
+    ].map(v => v.trim().toLowerCase());
+
     const categoryColorMap = {
       "식비":   { bg: "rgba(239, 68, 68, 0.82)", border: "#dc2626" },
       "육아":   { bg: "rgba(249, 115, 22, 0.82)", border: "#ea580c" },
@@ -241,6 +246,10 @@
       "보험":   { bg: "rgba(132, 204, 22, 0.82)", border: "#65a30d" },
       "기타":   { bg: "rgba(148, 163, 184, 0.82)", border: "#64748b" }
     };
+
+    function isAllowedEmail(email) {
+      return ALLOWED_SIGNUP_EMAILS.includes(String(email || "").trim().toLowerCase());
+    }
 
     function getCategoryColors(labels) {
       return {
@@ -387,7 +396,7 @@
       if (methods.includes(currentMethod)) methodSelect.value = currentMethod;
     }
 
-    function getFilteredRows(rows) {
+    function getPeriodFilteredRows(rows) {
       const type = $("periodType").value;
       const value = $("periodValue").value;
       if (!value) return [];
@@ -403,7 +412,7 @@
       return rows.filter(r => {
         const matchesSearch =
           !search ||
-          [r.place, r.memo, r.category, r.method, r.date]
+          [r.place, r.memo, r.category, r.method, r.date, String(r.amount || "")]
             .filter(Boolean)
             .some(v => String(v).toLowerCase().includes(search));
 
@@ -670,7 +679,7 @@
     function renderFilteredView() {
       fillPeriodOptions(currentRows);
 
-      const periodFilteredRows = getFilteredRows(currentRows);
+      const periodFilteredRows = getPeriodFilteredRows(currentRows);
       fillListFilterOptions(periodFilteredRows);
 
       const listFilteredRows = getListFilteredRows(periodFilteredRows);
@@ -713,8 +722,8 @@
         e.preventDefault();
 
         const user = auth.currentUser;
-        if (!user) {
-          alert("먼저 로그인해주세요.");
+        if (!user || !isAllowedEmail(user.email)) {
+          alert("허용된 가족 계정으로 로그인해주세요.");
           return;
         }
 
@@ -763,11 +772,16 @@
       });
 
       $("loginBtn").addEventListener("click", async () => {
-        const email = $("email").value.trim();
+        const email = $("email").value.trim().toLowerCase();
         const password = $("password").value;
 
         if (!email || !password) {
           alert("이메일과 비밀번호를 입력해주세요.");
+          return;
+        }
+
+        if (!isAllowedEmail(email)) {
+          alert("허용된 가족 계정만 로그인할 수 있습니다.");
           return;
         }
 
@@ -780,7 +794,7 @@
       });
 
       $("signupBtn").addEventListener("click", async () => {
-        const email = $("email").value.trim();
+        const email = $("email").value.trim().toLowerCase();
         const password = $("password").value;
 
         if (!email || !password) {
@@ -788,9 +802,14 @@
           return;
         }
 
+        if (!isAllowedEmail(email)) {
+          alert("등록된 두 계정만 회원가입할 수 있습니다.");
+          return;
+        }
+
         try {
           await createUserWithEmailAndPassword(auth, email, password);
-          alert("회원가입 완료. 이제 로그인해서 사용하세요.");
+          alert("회원가입 완료.");
         } catch (err) {
           console.error(err);
           alert("회원가입 실패: " + err.message);
@@ -834,8 +853,16 @@
     bindAppEvents();
     $("fDate").value = todayStr();
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
+        const email = (user.email || "").trim().toLowerCase();
+
+        if (!isAllowedEmail(email)) {
+          alert("허용되지 않은 계정입니다.");
+          await signOut(auth);
+          return;
+        }
+
         $("authSection").classList.add("hidden");
         $("appSection").classList.remove("hidden");
         $("userInfo").textContent = `로그인 계정: ${user.email}`;
