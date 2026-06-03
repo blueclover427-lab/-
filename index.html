@@ -6,11 +6,11 @@
   <title>실시간 부부 가계부</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
   <main class="max-w-6xl mx-auto p-4 space-y-4">
 
-    <!-- 로그인 -->
     <section id="authSection" class="max-w-md mx-auto bg-white rounded-xl shadow p-4 mt-6">
       <h2 class="text-lg font-bold mb-4">로그인 / 회원가입</h2>
       <div class="space-y-3">
@@ -24,7 +24,6 @@
       </div>
     </section>
 
-    <!-- 앱 -->
     <section id="appSection" class="hidden space-y-6">
       <header class="flex justify-between items-center">
         <div>
@@ -37,7 +36,6 @@
         </div>
       </header>
 
-      <!-- 요약 -->
       <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="bg-white rounded-xl shadow p-3 text-xs">
           <div class="text-slate-400">이번 달 합계</div>
@@ -57,7 +55,6 @@
         </div>
       </section>
 
-      <!-- 입력/수정 -->
       <section class="bg-white rounded-xl shadow p-4 space-y-4">
         <div class="flex justify-between items-center">
           <h2 id="formTitle" class="text-sm font-bold text-slate-800">새 지출 입력</h2>
@@ -130,7 +127,6 @@
         </form>
       </section>
 
-      <!-- 그래프 -->
       <section class="bg-white rounded-xl shadow p-4 space-y-4">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <h2 class="text-sm font-bold text-slate-800">지출 그래프 요약</h2>
@@ -143,38 +139,27 @@
           </div>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-4">
-          <div class="border rounded-xl p-3 md:col-span-1 space-y-3">
-            <h3 class="text-xs font-semibold text-slate-600">카테고리 구성</h3>
-            <canvas id="categoryDonutChart" height="220"></canvas>
-
-            <div class="overflow-hidden border rounded-lg">
-              <table class="w-full text-[11px]">
-                <thead class="bg-slate-100 text-slate-600">
-                  <tr>
-                    <th class="px-2 py-2 text-left">카테고리</th>
-                    <th class="px-2 py-2 text-right">금액</th>
-                    <th class="px-2 py-2 text-right">비중</th>
-                  </tr>
-                </thead>
-                <tbody id="categorySummaryBody" class="divide-y"></tbody>
-              </table>
-            </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="border rounded-xl p-3">
+            <h3 class="text-xs font-semibold text-slate-600 mb-2">카테고리 구성</h3>
+            <canvas id="categoryDonutChart" height="280"></canvas>
+            <p class="mt-2 text-[11px] text-slate-400">
+              비중이 작은 항목은 글자가 겹치지 않도록 내부 라벨이 숨겨질 수 있습니다.
+            </p>
           </div>
 
-          <div class="border rounded-xl p-3 md:col-span-1">
+          <div class="border rounded-xl p-3">
             <h3 class="text-xs font-semibold text-slate-600 mb-2">카테고리별 합계</h3>
-            <canvas id="categoryChart" height="220"></canvas>
+            <canvas id="categoryChart" height="280"></canvas>
           </div>
+        </div>
 
-          <div class="border rounded-xl p-3 md:col-span-1">
-            <h3 class="text-xs font-semibold text-slate-600 mb-2">기간 흐름</h3>
-            <canvas id="trendChart" height="220"></canvas>
-          </div>
+        <div class="border rounded-xl p-3">
+          <h3 class="text-xs font-semibold text-slate-600 mb-2">기간 흐름</h3>
+          <canvas id="trendChart" height="130"></canvas>
         </div>
       </section>
 
-      <!-- 내역 -->
       <section class="bg-white rounded-xl shadow p-4">
         <div class="flex justify-between items-center mb-2 text-xs">
           <h2 class="font-bold text-slate-800">지출 내역</h2>
@@ -211,7 +196,7 @@
       signOut
     } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 
-    const firebaseConfig = {
+    const app = initializeApp({
       apiKey: "AIzaSyBQ9xAaHvj8EetPngUcikGgfXog9-2kvhE",
       authDomain: "household-ledger-c5ff8.firebaseapp.com",
       databaseURL: "https://household-ledger-c5ff8-default-rtdb.firebaseio.com",
@@ -220,29 +205,27 @@
       messagingSenderId: "671578590446",
       appId: "1:671578590446:web:a8463d32a79cf9af17f7ff",
       measurementId: "G-JVX0VJ7778"
-    };
+    });
 
-    const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const auth = getAuth(app);
     const entriesRef = ref(db, "ledgerEntries");
-
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => (Number(n) || 0).toLocaleString("ko-KR") + "원";
 
     const categoryColorMap = {
-      "식비":   { bg: "rgba(239, 68, 68, 0.78)", border: "#dc2626" },
-      "육아":   { bg: "rgba(249, 115, 22, 0.78)", border: "#ea580c" },
-      "교육":   { bg: "rgba(234, 179, 8, 0.78)", border: "#ca8a04" },
-      "주거":   { bg: "rgba(34, 197, 94, 0.78)", border: "#16a34a" },
-      "교통":   { bg: "rgba(6, 182, 212, 0.78)", border: "#0891b2" },
-      "쇼핑":   { bg: "rgba(59, 130, 246, 0.78)", border: "#2563eb" },
-      "의료":   { bg: "rgba(99, 102, 241, 0.78)", border: "#4f46e5" },
-      "외식":   { bg: "rgba(168, 85, 247, 0.78)", border: "#9333ea" },
-      "통신":   { bg: "rgba(236, 72, 153, 0.78)", border: "#db2777" },
-      "생활":   { bg: "rgba(20, 184, 166, 0.78)", border: "#0f766e" },
-      "보험":   { bg: "rgba(132, 204, 22, 0.78)", border: "#65a30d" },
-      "기타":   { bg: "rgba(148, 163, 184, 0.78)", border: "#64748b" }
+      "식비":   { bg: "rgba(239, 68, 68, 0.82)", border: "#dc2626" },
+      "육아":   { bg: "rgba(249, 115, 22, 0.82)", border: "#ea580c" },
+      "교육":   { bg: "rgba(234, 179, 8, 0.82)", border: "#ca8a04" },
+      "주거":   { bg: "rgba(34, 197, 94, 0.82)", border: "#16a34a" },
+      "교통":   { bg: "rgba(6, 182, 212, 0.82)", border: "#0891b2" },
+      "쇼핑":   { bg: "rgba(59, 130, 246, 0.82)", border: "#2563eb" },
+      "의료":   { bg: "rgba(99, 102, 241, 0.82)", border: "#4f46e5" },
+      "외식":   { bg: "rgba(168, 85, 247, 0.82)", border: "#9333ea" },
+      "통신":   { bg: "rgba(236, 72, 153, 0.82)", border: "#db2777" },
+      "생활":   { bg: "rgba(20, 184, 166, 0.82)", border: "#0f766e" },
+      "보험":   { bg: "rgba(132, 204, 22, 0.82)", border: "#65a30d" },
+      "기타":   { bg: "rgba(148, 163, 184, 0.82)", border: "#64748b" }
     };
 
     function getCategoryColors(labels) {
@@ -259,14 +242,14 @@
     let categoryDonutChart = null;
     let trendChart = null;
 
+    function todayStr() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
     function applyPreset(selectId, inputId) {
       const sel = $(selectId);
       const input = $(inputId);
       if (sel && input && sel.value) input.value = sel.value;
-    }
-
-    function todayStr() {
-      return new Date().toISOString().slice(0, 10);
     }
 
     function exitEditMode() {
@@ -400,38 +383,6 @@
       return { labels, sums, label: `${selectedValue} 월별 지출` };
     }
 
-    function renderCategorySummaryTable(categoryData, backgrounds) {
-      const tbody = $("categorySummaryBody");
-      tbody.innerHTML = "";
-
-      const total = categoryData.reduce((sum, item) => sum + item[1], 0);
-
-      if (!categoryData.length) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="3" class="px-2 py-3 text-center text-slate-400">표시할 데이터가 없습니다.</td>
-          </tr>
-        `;
-        return;
-      }
-
-      categoryData.forEach(([label, value], index) => {
-        const ratio = total ? ((value / total) * 100).toFixed(1) : "0.0";
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="px-2 py-2">
-            <div class="flex items-center gap-2">
-              <span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${backgrounds[index]}"></span>
-              <span class="text-slate-700">${label}</span>
-            </div>
-          </td>
-          <td class="px-2 py-2 text-right font-semibold text-slate-700">${Number(value).toLocaleString("ko-KR")}원</td>
-          <td class="px-2 py-2 text-right text-slate-500">${ratio}%</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
     function renderCharts(rows) {
       fillPeriodOptions(rows);
 
@@ -443,13 +394,12 @@
 
       const categoryLabels = categoryData.map(v => v[0]);
       const categoryValues = categoryData.map(v => v[1]);
+      const total = categoryValues.reduce((a, b) => a + b, 0);
       const categoryColors = getCategoryColors(categoryLabels);
 
       if (categoryChart) categoryChart.destroy();
       if (categoryDonutChart) categoryDonutChart.destroy();
       if (trendChart) trendChart.destroy();
-
-      renderCategorySummaryTable(categoryData, categoryColors.backgrounds);
 
       categoryDonutChart = new Chart($("categoryDonutChart"), {
         type: "doughnut",
@@ -463,10 +413,57 @@
             hoverOffset: 6
           }]
         },
+        plugins: [ChartDataLabels],
         options: {
           responsive: true,
+          layout: {
+            padding: 12
+          },
+          cutout: "42%",
           plugins: {
-            legend: { display: false }
+            legend: { display: false },
+            datalabels: {
+              color: "#ffffff",
+              textAlign: "center",
+              font: function(context) {
+                const value = context.dataset.data[context.dataIndex];
+                const pct = total ? (value / total) * 100 : 0;
+                return {
+                  weight: "700",
+                  size: pct >= 20 ? 12 : 10,
+                  lineHeight: 1.15
+                };
+              },
+              formatter: function(value, context) {
+                const label = context.chart.data.labels[context.dataIndex];
+                const pct = total ? (value / total) * 100 : 0;
+
+                if (pct < 8) return null;
+
+                const shortLabel = String(label).length > 6 ? String(label).slice(0, 6) : String(label);
+                return [
+                  shortLabel,
+                  Number(value).toLocaleString("ko-KR") + "원",
+                  pct.toFixed(1) + "%"
+                ];
+              },
+              anchor: "center",
+              align: "center",
+              offset: 0,
+              clamp: true,
+              clip: true,
+              textStrokeColor: "rgba(0,0,0,0.18)",
+              textStrokeWidth: 2
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const value = context.raw || 0;
+                  const pct = total ? ((value / total) * 100).toFixed(1) : "0.0";
+                  return `${context.label}: ${Number(value).toLocaleString("ko-KR")}원 (${pct}%)`;
+                }
+              }
+            }
           }
         }
       });
@@ -487,7 +484,14 @@
         options: {
           responsive: true,
           plugins: {
-            legend: { display: false }
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.label}: ${Number(context.raw).toLocaleString("ko-KR")}원`;
+                }
+              }
+            }
           },
           scales: {
             x: {
@@ -525,7 +529,14 @@
         options: {
           responsive: true,
           plugins: {
-            legend: { display: true }
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${Number(context.raw).toLocaleString("ko-KR")}원`;
+                }
+              }
+            }
           },
           scales: {
             x: {
