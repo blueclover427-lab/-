@@ -10,18 +10,13 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
   <main class="max-w-6xl mx-auto p-4 space-y-4">
-
     <section id="authSection" class="max-w-md mx-auto bg-white rounded-xl shadow p-4 mt-8">
       <h2 class="text-lg font-bold mb-4">로그인</h2>
       <div class="space-y-3">
         <input id="email" type="email" placeholder="이메일" class="w-full border rounded-lg px-3 py-2" />
         <input id="password" type="password" placeholder="비밀번호" class="w-full border rounded-lg px-3 py-2" />
-        <button id="loginBtn" class="w-full bg-indigo-600 text-white rounded-lg px-3 py-2">
-          로그인
-        </button>
-        <p id="authStatus" class="text-sm text-slate-500">
-          등록된 부부 계정만 로그인할 수 있습니다.
-        </p>
+        <button id="loginBtn" class="w-full bg-indigo-600 text-white rounded-lg px-3 py-2">로그인</button>
+        <p id="authStatus" class="text-sm text-slate-500">등록된 부부 계정만 로그인할 수 있습니다.</p>
       </div>
     </section>
 
@@ -32,27 +27,43 @@
           <p id="userInfo" class="text-xs text-slate-500 mt-1"></p>
         </div>
         <div class="flex items-center gap-3">
-          <span id="sync-status" class="text-xs text-slate-500">연결 중...</span>
+          <span id="syncStatus" class="text-xs text-slate-500">연결 중...</span>
           <button id="logoutBtn" class="px-3 py-1.5 border rounded-lg text-xs text-slate-600">로그아웃</button>
         </div>
       </header>
 
+      <section class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="flex justify-between items-center">
+          <h2 class="text-sm font-bold text-slate-800">공통 필터</h2>
+          <button id="btnClearFilter" class="px-3 py-1.5 border rounded-lg text-xs text-slate-600">필터 초기화</button>
+        </div>
+        <div class="grid md:grid-cols-2 gap-2 text-xs">
+          <select id="globalCategoryFilter" class="border rounded-lg px-3 py-2">
+            <option value="">전체 카테고리</option>
+          </select>
+          <select id="globalMethodFilter" class="border rounded-lg px-3 py-2">
+            <option value="">전체 결제수단</option>
+          </select>
+        </div>
+        <p class="text-[11px] text-slate-400">이 필터는 상단 요약, 그래프, 지출 내역 전체에 적용됩니다.</p>
+      </section>
+
       <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="bg-white rounded-xl shadow p-3 text-xs">
           <div class="text-slate-400">이번 달 합계</div>
-          <div id="kpi-total" class="text-lg font-bold mt-1">0원</div>
+          <div id="kpiTotal" class="text-lg font-bold mt-1">0원</div>
         </div>
         <div class="bg-white rounded-xl shadow p-3 text-xs">
           <div class="text-slate-400">건수</div>
-          <div id="kpi-count" class="text-lg font-bold mt-1">0건</div>
+          <div id="kpiCount" class="text-lg font-bold mt-1">0건</div>
         </div>
         <div class="bg-white rounded-xl shadow p-3 text-xs">
           <div class="text-slate-400">평균 지출</div>
-          <div id="kpi-avg" class="text-lg font-bold mt-1">0원</div>
+          <div id="kpiAvg" class="text-lg font-bold mt-1">0원</div>
         </div>
         <div class="bg-white rounded-xl shadow p-3 text-xs">
           <div class="text-slate-400">마지막 수정</div>
-          <div id="kpi-updated" class="text-[11px] font-semibold mt-1 text-slate-700">-</div>
+          <div id="kpiUpdated" class="text-[11px] font-semibold mt-1 text-slate-700">-</div>
         </div>
       </section>
 
@@ -100,8 +111,6 @@
                 <option value="국민카드">국민카드</option>
                 <option value="하나카드">하나카드</option>
                 <option value="삼성카드">삼성카드</option>
-                <option value="삼성월렛머니">삼성월렛머니</option>
-                <option value="케이뱅크카드">케이뱅크카드</option>
                 <option value="계좌이체">계좌이체</option>
                 <option value="현금">현금</option>
               </select>
@@ -117,15 +126,9 @@
             <input id="fMemo" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="선택 사항" />
           </div>
           <div class="md:col-span-2 flex gap-2 mt-2">
-            <button type="submit" id="submitBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg">
-              저장하기
-            </button>
-            <button type="button" id="btnCancelEdit" class="hidden px-3 py-2 border rounded-lg text-xs text-amber-700 border-amber-300">
-              수정 취소
-            </button>
-            <button type="button" id="btnReset" class="px-3 py-2 border rounded-lg text-xs text-slate-600">
-              폼 초기화
-            </button>
+            <button type="submit" id="submitBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg">저장하기</button>
+            <button type="button" id="btnCancelEdit" class="hidden px-3 py-2 border rounded-lg text-xs text-amber-700 border-amber-300">수정 취소</button>
+            <button type="button" id="btnReset" class="px-3 py-2 border rounded-lg text-xs text-slate-600">폼 초기화</button>
           </div>
         </form>
       </section>
@@ -146,11 +149,7 @@
           <div class="border rounded-xl p-3">
             <h3 class="text-xs font-semibold text-slate-600 mb-2">카테고리 구성</h3>
             <canvas id="categoryDonutChart" height="280"></canvas>
-            <p class="mt-2 text-[11px] text-slate-400">
-              작은 조각은 내용 대신 ... 으로 표시되고, 마우스를 올리면 상세 내용이 보입니다.
-            </p>
           </div>
-
           <div class="border rounded-xl p-3">
             <h3 class="text-xs font-semibold text-slate-600 mb-2">카테고리별 합계</h3>
             <canvas id="categoryChart" height="280"></canvas>
@@ -166,20 +165,12 @@
       <section class="bg-white rounded-xl shadow p-4 space-y-3">
         <div class="flex justify-between items-center text-xs">
           <h2 class="font-bold text-slate-800">지출 내역</h2>
-          <span id="row-count" class="text-slate-400">0건</span>
+          <span id="rowCount" class="text-slate-400">0건</span>
         </div>
 
-        <div class="grid md:grid-cols-4 gap-2 text-xs">
+        <div class="grid md:grid-cols-2 gap-2 text-xs">
           <input id="listSearch" class="border rounded-lg px-3 py-2" placeholder="검색어 (지출처, 메모, 카테고리, 결제수단)" />
-          <select id="listCategoryFilter" class="border rounded-lg px-3 py-2">
-            <option value="">전체 카테고리</option>
-          </select>
-          <select id="listMethodFilter" class="border rounded-lg px-3 py-2">
-            <option value="">전체 결제수단</option>
-          </select>
-          <button id="btnClearListFilter" class="border rounded-lg px-3 py-2 text-slate-600">
-            필터 초기화
-          </button>
+          <button id="btnClearSearch" class="border rounded-lg px-3 py-2 text-slate-600">검색 초기화</button>
         </div>
 
         <div class="overflow-x-auto">
@@ -205,14 +196,9 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
     import { getDatabase, ref, push, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
-    import {
-      getAuth,
-      onAuthStateChanged,
-      signInWithEmailAndPassword,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
 
-    const app = initializeApp({
+    const firebaseConfig = {
       apiKey: "AIzaSyBQ9xAaHvj8EetPngUcikGgfXog9-2kvhE",
       authDomain: "household-ledger-c5ff8.firebaseapp.com",
       databaseURL: "https://household-ledger-c5ff8-default-rtdb.firebaseio.com",
@@ -221,115 +207,164 @@
       messagingSenderId: "671578590446",
       appId: "1:671578590446:web:a8463d32a79cf9af17f7ff",
       measurementId: "G-JVX0VJ7778"
-    });
+    };
 
+    const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const auth = getAuth(app);
     const entriesRef = ref(db, "ledgerEntries");
-    const $ = (id) => document.getElementById(id);
-    const fmt = (n) => (Number(n) || 0).toLocaleString("ko-KR") + "원";
 
-    const ALLOWED_EMAILS = [
-      "blueclover427@gmail.com",
-      "florencia_11@naver.com"
-    ].map(v => v.trim().toLowerCase());
+    const allowedEmails = ["blueclover427@gmail.com", "florencia_11@naver.com"].map(v => v.toLowerCase());
+    const fmt = n => `${(Number(n) || 0).toLocaleString("ko-KR")}원`;
+    const today = () => new Date().toISOString().slice(0, 10);
 
-    const categoryColorMap = {
-      "식비":   { bg: "rgba(239, 68, 68, 0.82)", border: "#dc2626" },
-      "육아":   { bg: "rgba(249, 115, 22, 0.82)", border: "#ea580c" },
-      "교육":   { bg: "rgba(234, 179, 8, 0.82)", border: "#ca8a04" },
-      "주거":   { bg: "rgba(34, 197, 94, 0.82)", border: "#16a34a" },
-      "교통":   { bg: "rgba(6, 182, 212, 0.82)", border: "#0891b2" },
-      "쇼핑":   { bg: "rgba(59, 130, 246, 0.82)", border: "#2563eb" },
-      "의료":   { bg: "rgba(99, 102, 241, 0.82)", border: "#4f46e5" },
-      "외식":   { bg: "rgba(168, 85, 247, 0.82)", border: "#9333ea" },
-      "통신":   { bg: "rgba(236, 72, 153, 0.82)", border: "#db2777" },
-      "생활":   { bg: "rgba(20, 184, 166, 0.82)", border: "#0f766e" },
-      "보험":   { bg: "rgba(132, 204, 22, 0.82)", border: "#65a30d" },
-      "기타":   { bg: "rgba(148, 163, 184, 0.82)", border: "#64748b" }
+    const els = {
+      authSection: document.getElementById("authSection"),
+      appSection: document.getElementById("appSection"),
+      email: document.getElementById("email"),
+      password: document.getElementById("password"),
+      loginBtn: document.getElementById("loginBtn"),
+      logoutBtn: document.getElementById("logoutBtn"),
+      authStatus: document.getElementById("authStatus"),
+      userInfo: document.getElementById("userInfo"),
+      syncStatus: document.getElementById("syncStatus"),
+
+      globalCategoryFilter: document.getElementById("globalCategoryFilter"),
+      globalMethodFilter: document.getElementById("globalMethodFilter"),
+      btnClearFilter: document.getElementById("btnClearFilter"),
+
+      kpiTotal: document.getElementById("kpiTotal"),
+      kpiCount: document.getElementById("kpiCount"),
+      kpiAvg: document.getElementById("kpiAvg"),
+      kpiUpdated: document.getElementById("kpiUpdated"),
+
+      entryForm: document.getElementById("entryForm"),
+      formTitle: document.getElementById("formTitle"),
+      editBadge: document.getElementById("editBadge"),
+      submitBtn: document.getElementById("submitBtn"),
+      btnCancelEdit: document.getElementById("btnCancelEdit"),
+      btnReset: document.getElementById("btnReset"),
+
+      fDate: document.getElementById("fDate"),
+      fCategoryPreset: document.getElementById("fCategoryPreset"),
+      fCategory: document.getElementById("fCategory"),
+      fPlace: document.getElementById("fPlace"),
+      fMethodPreset: document.getElementById("fMethodPreset"),
+      fMethod: document.getElementById("fMethod"),
+      fAmount: document.getElementById("fAmount"),
+      fMemo: document.getElementById("fMemo"),
+
+      periodType: document.getElementById("periodType"),
+      periodValue: document.getElementById("periodValue"),
+
+      listSearch: document.getElementById("listSearch"),
+      btnClearSearch: document.getElementById("btnClearSearch"),
+      rowCount: document.getElementById("rowCount"),
+      tableBody: document.getElementById("tableBody"),
+
+      categoryDonutChart: document.getElementById("categoryDonutChart"),
+      categoryChart: document.getElementById("categoryChart"),
+      trendChart: document.getElementById("trendChart")
     };
 
-    function isAllowedEmail(email) {
-      return ALLOWED_EMAILS.includes(String(email || "").trim().toLowerCase());
+    const categoryColorMap = {
+      식비:   { bg: "rgba(239,68,68,0.82)", border: "#dc2626" },
+      육아:   { bg: "rgba(249,115,22,0.82)", border: "#ea580c" },
+      교육:   { bg: "rgba(234,179,8,0.82)", border: "#ca8a04" },
+      주거:   { bg: "rgba(34,197,94,0.82)", border: "#16a34a" },
+      교통:   { bg: "rgba(6,182,212,0.82)", border: "#0891b2" },
+      쇼핑:   { bg: "rgba(59,130,246,0.82)", border: "#2563eb" },
+      의료:   { bg: "rgba(99,102,241,0.82)", border: "#4f46e5" },
+      외식:   { bg: "rgba(168,85,247,0.82)", border: "#9333ea" },
+      통신:   { bg: "rgba(236,72,153,0.82)", border: "#db2777" },
+      생활:   { bg: "rgba(20,184,166,0.82)", border: "#0f766e" },
+      보험:   { bg: "rgba(132,204,22,0.82)", border: "#65a30d" },
+      기타:   { bg: "rgba(148,163,184,0.82)", border: "#64748b" }
+    };
+
+    const state = {
+      rows: [],
+      editingId: null,
+      unsubscribe: null,
+      charts: { donut: null, bar: null, line: null }
+    };
+
+    const isAllowedEmail = email => allowedEmails.includes(String(email || "").trim().toLowerCase());
+    const amountToNumber = value => Number(String(value || "").replace(/[^0-9]/g, "")) || 0;
+    const formatInputNumber = value => String(value).replace(/[^0-9]/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    function fillSelect(selectEl, items, defaultLabel, keepValue = true) {
+      const current = keepValue ? selectEl.value : "";
+      selectEl.innerHTML = `<option value="">${defaultLabel}</option>`;
+      [...new Set(items.filter(Boolean))].sort().forEach(v => {
+        const option = document.createElement("option");
+        option.value = v;
+        option.textContent = v;
+        selectEl.appendChild(option);
+      });
+      if ([...selectEl.options].some(o => o.value === current)) selectEl.value = current;
     }
 
-    function getCategoryColors(labels) {
-      return {
-        backgrounds: labels.map(label => (categoryColorMap[label] || categoryColorMap["기타"]).bg),
-        borders: labels.map(label => (categoryColorMap[label] || categoryColorMap["기타"]).border)
-      };
+    function setPreset(selectEl, inputEl) {
+      if (selectEl.value) inputEl.value = selectEl.value;
     }
 
-    let unsubscribeEntries = null;
-    let currentRows = [];
-    let editingId = null;
-    let categoryChart = null;
-    let categoryDonutChart = null;
-    let trendChart = null;
+    function toggleEditMode(on, row = null) {
+      state.editingId = on ? row.id : null;
+      els.formTitle.textContent = on ? "지출 내역 수정" : "새 지출 입력";
+      els.submitBtn.textContent = on ? "수정 저장" : "저장하기";
+      els.editBadge.classList.toggle("hidden", !on);
+      els.btnCancelEdit.classList.toggle("hidden", !on);
 
-    function todayStr() {
-      return new Date().toISOString().slice(0, 10);
-    }
+      if (!on) {
+        els.entryForm.reset();
+        els.fDate.value = today();
+        return;
+      }
 
-    function applyPreset(selectId, inputId) {
-      const sel = $(selectId);
-      const input = $(inputId);
-      if (sel && input && sel.value) input.value = sel.value;
-    }
-
-    function exitEditMode() {
-      editingId = null;
-      $("formTitle").textContent = "새 지출 입력";
-      $("editBadge").classList.add("hidden");
-      $("btnCancelEdit").classList.add("hidden");
-      $("submitBtn").textContent = "저장하기";
-    }
-
-    function resetForm() {
-      $("entryForm").reset();
-      $("fCategoryPreset").value = "";
-      $("fMethodPreset").value = "";
-      $("fDate").value = todayStr();
-      exitEditMode();
-    }
-
-    function enterEditMode(row) {
-      editingId = row.id;
-      $("formTitle").textContent = "지출 내역 수정";
-      $("editBadge").classList.remove("hidden");
-      $("btnCancelEdit").classList.remove("hidden");
-      $("submitBtn").textContent = "수정 저장";
-
-      $("fDate").value = row.date || todayStr();
-      $("fCategory").value = row.category || "";
-      $("fCategoryPreset").value = row.category || "";
-      $("fPlace").value = row.place || "";
-      $("fMethod").value = row.method || "";
-      $("fMethodPreset").value = row.method || "";
-      $("fAmount").value = String(row.amount || "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-      $("fMemo").value = row.memo || "";
-
+      els.fDate.value = row.date || today();
+      els.fCategory.value = row.category || "";
+      els.fCategoryPreset.value = row.category || "";
+      els.fPlace.value = row.place || "";
+      els.fMethod.value = row.method || "";
+      els.fMethodPreset.value = row.method || "";
+      els.fAmount.value = formatInputNumber(row.amount || "");
+      els.fMemo.value = row.memo || "";
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function getCurrentMonthRows(rows) {
       const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, "0");
-      return rows.filter(r => (r.date || "").startsWith(`${y}-${m}`));
+      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      return rows.filter(r => (r.date || "").startsWith(ym));
     }
 
-    function updateKpis(rows) {
-      const monthRows = getCurrentMonthRows(rows);
-      const total = monthRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    function getFilteredRows() {
+      const category = els.globalCategoryFilter.value;
+      const method = els.globalMethodFilter.value;
+      const search = els.listSearch.value.trim().toLowerCase();
+      const periodValue = els.periodValue.value;
 
-      $("kpi-total").textContent = fmt(total);
-      $("kpi-count").textContent = `${monthRows.length}건`;
-      $("kpi-avg").textContent = monthRows.length ? fmt(Math.round(total / monthRows.length)) : "0원";
-      $("kpi-updated").textContent = rows.length ? new Date().toLocaleString("ko-KR") : "-";
+      const globalRows = state.rows.filter(r =>
+        (!category || r.category === category) &&
+        (!method || r.method === method)
+      );
+
+      const periodRows = periodValue
+        ? globalRows.filter(r => (r.date || "").startsWith(periodValue))
+        : globalRows;
+
+      const searchedRows = periodRows.filter(r =>
+        !search ||
+        [r.place, r.memo, r.category, r.method, r.date, String(r.amount || "")]
+          .filter(Boolean)
+          .some(v => String(v).toLowerCase().includes(search))
+      );
+
+      return { globalRows, periodRows, searchedRows };
     }
 
-    function groupByCategory(rows) {
+    function getCategorySummary(rows) {
       const map = {};
       rows.forEach(r => {
         const key = r.category || "기타";
@@ -338,145 +373,84 @@
       return Object.entries(map).sort((a, b) => b[1] - a[1]);
     }
 
-    function buildMonthOptions(rows) {
-      return [...new Set(rows.map(r => (r.date || "").slice(0, 7)).filter(Boolean))].sort().reverse();
-    }
-
-    function buildYearOptions(rows) {
-      return [...new Set(rows.map(r => (r.date || "").slice(0, 4)).filter(Boolean))].sort().reverse();
-    }
-
-    function fillPeriodOptions(rows) {
-      const type = $("periodType").value;
-      const options = type === "month" ? buildMonthOptions(rows) : buildYearOptions(rows);
-      const select = $("periodValue");
-      const current = select.value;
-
-      select.innerHTML = "";
-
-      options.forEach(v => {
-        const option = document.createElement("option");
-        option.value = v;
-        option.textContent = type === "month" ? `${v} 기준` : `${v}년 기준`;
-        select.appendChild(option);
-      });
-
-      if (options.includes(current)) {
-        select.value = current;
-      } else if (options.length) {
-        select.value = options[0];
-      }
-    }
-
-    function fillListFilterOptions(rows) {
-      const categories = [...new Set(rows.map(r => r.category).filter(Boolean))].sort();
-      const methods = [...new Set(rows.map(r => r.method).filter(Boolean))].sort();
-
-      const catSelect = $("listCategoryFilter");
-      const methodSelect = $("listMethodFilter");
-      const currentCat = catSelect.value;
-      const currentMethod = methodSelect.value;
-
-      catSelect.innerHTML = '<option value="">전체 카테고리</option>';
-      methodSelect.innerHTML = '<option value="">전체 결제수단</option>';
-
-      categories.forEach(v => {
-        const option = document.createElement("option");
-        option.value = v;
-        option.textContent = v;
-        catSelect.appendChild(option);
-      });
-
-      methods.forEach(v => {
-        const option = document.createElement("option");
-        option.value = v;
-        option.textContent = v;
-        methodSelect.appendChild(option);
-      });
-
-      if (categories.includes(currentCat)) catSelect.value = currentCat;
-      if (methods.includes(currentMethod)) methodSelect.value = currentMethod;
-    }
-
-    function getPeriodFilteredRows(rows) {
-      const type = $("periodType").value;
-      const value = $("periodValue").value;
-      if (!value) return [];
-      return rows.filter(r => (r.date || "").startsWith(value));
-    }
-
-    function getListFilteredRows(rows) {
-      const search = $("listSearch").value.trim().toLowerCase();
-      const category = $("listCategoryFilter").value;
-      const method = $("listMethodFilter").value;
-
-      return rows.filter(r => {
-        const matchesSearch =
-          !search ||
-          [r.place, r.memo, r.category, r.method, r.date, String(r.amount || "")]
-            .filter(Boolean)
-            .some(v => String(v).toLowerCase().includes(search));
-
-        const matchesCategory = !category || r.category === category;
-        const matchesMethod = !method || r.method === method;
-
-        return matchesSearch && matchesCategory && matchesMethod;
-      });
-    }
-
-    function buildTrendData(rows, type, selectedValue) {
+    function getTrendData(rows, type, selectedValue) {
       if (!selectedValue) return { labels: [], sums: [], label: "기간 지출" };
 
       if (type === "month") {
-        const baseDate = new Date(selectedValue + "-01");
-        const year = baseDate.getFullYear();
-        const month = baseDate.getMonth();
-        const lastDay = new Date(year, month + 1, 0).getDate();
-
-        const labels = Array.from({ length: lastDay }, (_, i) => String(i + 1));
-        const sums = Array(lastDay).fill(0);
+        const base = new Date(`${selectedValue}-01`);
+        const days = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+        const labels = Array.from({ length: days }, (_, i) => String(i + 1));
+        const sums = Array(days).fill(0);
 
         rows.forEach(r => {
           const day = Number((r.date || "").slice(8, 10));
-          if (day >= 1 && day <= lastDay) sums[day - 1] += Number(r.amount) || 0;
+          if (day >= 1 && day <= days) sums[day - 1] += Number(r.amount) || 0;
         });
-
         return { labels, sums, label: `${selectedValue} 일별 지출` };
       }
 
       const labels = Array.from({ length: 12 }, (_, i) => `${i + 1}월`);
       const sums = Array(12).fill(0);
-
       rows.forEach(r => {
         const month = Number((r.date || "").slice(5, 7));
         if (month >= 1 && month <= 12) sums[month - 1] += Number(r.amount) || 0;
       });
-
       return { labels, sums, label: `${selectedValue} 월별 지출` };
     }
 
-    function renderCharts(filteredRows) {
-      const categoryData = groupByCategory(filteredRows);
-      const type = $("periodType").value;
-      const selected = $("periodValue").value;
-      const trendData = buildTrendData(filteredRows, type, selected);
+    function getCategoryColors(labels) {
+      return {
+        backgrounds: labels.map(l => (categoryColorMap[l] || categoryColorMap["기타"]).bg),
+        borders: labels.map(l => (categoryColorMap[l] || categoryColorMap["기타"]).border)
+      };
+    }
 
-      const categoryLabels = categoryData.map(v => v[0]);
-      const categoryValues = categoryData.map(v => v[1]);
-      const total = categoryValues.reduce((a, b) => a + b, 0);
-      const categoryColors = getCategoryColors(categoryLabels);
+    function createChart(instance, canvas, config) {
+      return instance ? (Object.assign(instance.data, config.data), Object.assign(instance.options, config.options || {}), instance.update(), instance) : new Chart(canvas, config);
+    }
 
-      if (categoryChart) categoryChart.destroy();
-      if (categoryDonutChart) categoryDonutChart.destroy();
-      if (trendChart) trendChart.destroy();
+    function updateKpis(globalRows) {
+      const monthRows = getCurrentMonthRows(globalRows);
+      const total = monthRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+      els.kpiTotal.textContent = fmt(total);
+      els.kpiCount.textContent = `${monthRows.length}건`;
+      els.kpiAvg.textContent = monthRows.length ? fmt(Math.round(total / monthRows.length)) : "0원";
+      els.kpiUpdated.textContent = globalRows.length ? new Date().toLocaleString("ko-KR") : "-";
+    }
 
-      categoryDonutChart = new Chart($("categoryDonutChart"), {
+    function updatePeriodOptions(globalRows) {
+      const type = els.periodType.value;
+      const current = els.periodValue.value;
+      const values = [...new Set(globalRows.map(r => (r.date || "").slice(0, type === "month" ? 7 : 4)).filter(Boolean))].sort().reverse();
+
+      els.periodValue.innerHTML = "";
+      values.forEach(v => {
+        const option = document.createElement("option");
+        option.value = v;
+        option.textContent = type === "month" ? `${v} 기준` : `${v}년 기준`;
+        els.periodValue.appendChild(option);
+      });
+
+      if (values.includes(current)) els.periodValue.value = current;
+      else if (values.length) els.periodValue.value = values[0];
+    }
+
+    function renderCharts(periodRows) {
+      const summary = getCategorySummary(periodRows);
+      const labels = summary.map(v => v[0]);
+      const values = summary.map(v => v[1]);
+      const total = values.reduce((a, b) => a + b, 0);
+      const colors = getCategoryColors(labels);
+      const empty = !labels.length;
+      const trend = getTrendData(periodRows, els.periodType.value, els.periodValue.value);
+
+      state.charts.donut = createChart(state.charts.donut, els.categoryDonutChart, {
         type: "doughnut",
         data: {
-          labels: categoryLabels,
+          labels: empty ? ["데이터 없음"] : labels,
           datasets: [{
-            data: categoryValues,
-            backgroundColor: categoryColors.backgrounds,
+            data: empty ? [1] : values,
+            backgroundColor: empty ? ["rgba(203,213,225,0.9)"] : colors.backgrounds,
             borderColor: "#ffffff",
             borderWidth: 2,
             hoverOffset: 6
@@ -492,32 +466,18 @@
             datalabels: {
               color: "#ffffff",
               textAlign: "center",
-              font: function(context) {
-                const value = context.dataset.data[context.dataIndex];
+              font: ctx => {
+                const value = ctx.dataset.data[ctx.dataIndex];
                 const pct = total ? (value / total) * 100 : 0;
-                const chartWidth = context.chart.width;
-                const isMobile = chartWidth < 520;
-
-                return {
-                  weight: "700",
-                  size: isMobile
-                    ? (pct >= 20 ? 12 : 10)
-                    : (pct >= 20 ? 18 : 15),
-                  lineHeight: 1.15
-                };
+                const mobile = ctx.chart.width < 520;
+                return { weight: "700", size: mobile ? (pct >= 20 ? 12 : 10) : (pct >= 20 ? 18 : 15), lineHeight: 1.15 };
               },
-              formatter: function(value, context) {
-                const label = context.chart.data.labels[context.dataIndex];
+              formatter: (value, ctx) => {
+                if (empty) return "데이터 없음";
+                const label = ctx.chart.data.labels[ctx.dataIndex];
                 const pct = total ? (value / total) * 100 : 0;
-
                 if (pct < 8) return "...";
-
-                const shortLabel = String(label).length > 6 ? String(label).slice(0, 6) : String(label);
-                return [
-                  shortLabel,
-                  Number(value).toLocaleString("ko-KR") + "원",
-                  pct.toFixed(1) + "%"
-                ];
+                return [String(label).slice(0, 6), `${Number(value).toLocaleString("ko-KR")}원`, `${pct.toFixed(1)}%`];
               },
               anchor: "center",
               align: "center",
@@ -529,67 +489,48 @@
             },
             tooltip: {
               callbacks: {
-                label: function(context) {
-                  const value = context.raw || 0;
-                  const pct = total ? ((value / total) * 100).toFixed(1) : "0.0";
-                  return `${context.label}: ${Number(value).toLocaleString("ko-KR")}원 (${pct}%)`;
-                }
+                label: ctx => empty ? "데이터 없음" : `${ctx.label}: ${Number(ctx.raw).toLocaleString("ko-KR")}원 (${total ? ((ctx.raw / total) * 100).toFixed(1) : "0.0"}%)`
               }
             }
           }
         }
       });
 
-      categoryChart = new Chart($("categoryChart"), {
+      state.charts.bar = createChart(state.charts.bar, els.categoryChart, {
         type: "bar",
         data: {
-          labels: categoryLabels,
+          labels: empty ? ["데이터 없음"] : labels,
           datasets: [{
             label: "카테고리별 지출",
-            data: categoryValues,
-            backgroundColor: categoryColors.backgrounds,
-            borderColor: categoryColors.borders,
+            data: empty ? [0] : values,
+            backgroundColor: empty ? ["rgba(203,213,225,0.9)"] : colors.backgrounds,
+            borderColor: empty ? ["#94a3b8"] : colors.borders,
             borderWidth: 1.5,
             borderRadius: 8
           }]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return `${context.label}: ${Number(context.raw).toLocaleString("ko-KR")}원`;
-                }
-              }
-            }
-          },
+          plugins: { legend: { display: false } },
           scales: {
-            x: {
-              ticks: { color: "#475569" },
-              grid: { display: false }
-            },
+            x: { ticks: { color: "#475569" }, grid: { display: false } },
             y: {
               beginAtZero: true,
-              ticks: {
-                color: "#475569",
-                callback: (value) => Number(value).toLocaleString("ko-KR") + "원"
-              }
+              ticks: { color: "#475569", callback: value => `${Number(value).toLocaleString("ko-KR")}원` }
             }
           }
         }
       });
 
-      trendChart = new Chart($("trendChart"), {
+      state.charts.line = createChart(state.charts.line, els.trendChart, {
         type: "line",
         data: {
-          labels: trendData.labels,
+          labels: trend.labels,
           datasets: [{
-            label: trendData.label,
-            data: trendData.sums,
+            label: trend.label,
+            data: trend.sums,
             borderColor: "#0f766e",
-            backgroundColor: "rgba(20, 184, 166, 0.18)",
+            backgroundColor: "rgba(20,184,166,0.18)",
             fill: true,
             tension: 0.25,
             pointBackgroundColor: "#0f766e",
@@ -600,43 +541,22 @@
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: true },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return `${context.dataset.label}: ${Number(context.raw).toLocaleString("ko-KR")}원`;
-                }
-              }
-            }
-          },
+          plugins: { legend: { display: true } },
           scales: {
-            x: {
-              ticks: { color: "#475569" },
-              grid: { display: false }
-            },
+            x: { ticks: { color: "#475569" }, grid: { display: false } },
             y: {
               beginAtZero: true,
-              ticks: {
-                color: "#475569",
-                callback: (value) => Number(value).toLocaleString("ko-KR") + "원"
-              }
+              ticks: { color: "#475569", callback: value => `${Number(value).toLocaleString("ko-KR")}원` }
             }
           }
         }
       });
     }
 
-    function renderTable(filteredRows) {
-      const tbody = $("tableBody");
-      tbody.innerHTML = "";
-      $("row-count").textContent = `${filteredRows.length}건`;
-
-      filteredRows.forEach((r) => {
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-50";
-
-        tr.innerHTML = `
+    function renderTable(rows) {
+      els.rowCount.textContent = `${rows.length}건`;
+      els.tableBody.innerHTML = rows.map(r => `
+        <tr class="hover:bg-slate-50">
           <td class="px-2 py-1 whitespace-nowrap">${r.date || "-"}</td>
           <td class="px-2 py-1 whitespace-nowrap">${r.category || "-"}</td>
           <td class="px-2 py-1 whitespace-nowrap">${r.place || "-"}</td>
@@ -645,221 +565,195 @@
           <td class="px-2 py-1 whitespace-nowrap">${r.memo || "-"}</td>
           <td class="px-2 py-1 text-center">
             <div class="flex justify-center gap-1">
-              <button data-edit="${r.id}" class="text-[10px] text-indigo-600 border border-indigo-500 px-1.5 py-0.5 rounded edit-btn">수정</button>
-              <button data-id="${r.id}" class="text-[10px] text-rose-500 border border-rose-500 px-1.5 py-0.5 rounded delete-btn">삭제</button>
+              <button data-action="edit" data-id="${r.id}" class="text-[10px] text-indigo-600 border border-indigo-500 px-1.5 py-0.5 rounded">수정</button>
+              <button data-action="delete" data-id="${r.id}" class="text-[10px] text-rose-500 border border-rose-500 px-1.5 py-0.5 rounded">삭제</button>
             </div>
           </td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      document.querySelectorAll(".edit-btn").forEach((btn) => {
-        btn.onclick = () => {
-          const id = btn.getAttribute("data-edit");
-          const row = currentRows.find(r => r.id === id);
-          if (row) enterEditMode(row);
-        };
-      });
-
-      document.querySelectorAll(".delete-btn").forEach((btn) => {
-        btn.onclick = async () => {
-          const id = btn.getAttribute("data-id");
-          if (confirm("이 내역을 삭제할까요?")) {
-            try {
-              await remove(ref(db, "ledgerEntries/" + id));
-              if (editingId === id) resetForm();
-            } catch (err) {
-              console.error(err);
-              alert("삭제 실패: " + err.message);
-            }
-          }
-        };
-      });
+        </tr>
+      `).join("");
     }
 
-    function renderFilteredView() {
-      fillPeriodOptions(currentRows);
+    function renderAll() {
+      fillSelect(els.globalCategoryFilter, state.rows.map(r => r.category), "전체 카테고리");
+      fillSelect(els.globalMethodFilter, state.rows.map(r => r.method), "전체 결제수단");
 
-      const periodFilteredRows = getPeriodFilteredRows(currentRows);
-      fillListFilterOptions(periodFilteredRows);
+      const previewGlobalRows = state.rows.filter(r =>
+        (!els.globalCategoryFilter.value || r.category === els.globalCategoryFilter.value) &&
+        (!els.globalMethodFilter.value || r.method === els.globalMethodFilter.value)
+      );
 
-      const listFilteredRows = getListFilteredRows(periodFilteredRows);
+      updateKpis(previewGlobalRows);
+      updatePeriodOptions(previewGlobalRows);
 
-      renderCharts(periodFilteredRows);
-      renderTable(listFilteredRows);
+      const { globalRows, periodRows, searchedRows } = getFilteredRows();
+      updateKpis(globalRows);
+      renderCharts(periodRows);
+      renderTable(searchedRows);
     }
 
-    function bindAppEvents() {
-      $("fCategoryPreset").addEventListener("change", () => applyPreset("fCategoryPreset", "fCategory"));
-      $("fMethodPreset").addEventListener("change", () => applyPreset("fMethodPreset", "fMethod"));
+    async function handleLogin() {
+      const email = els.email.value.trim();
+      const password = els.password.value;
 
-      $("fAmount").addEventListener("input", (e) => {
-        const onlyNum = e.target.value.replace(/[^0-9]/g, "");
-        e.target.value = onlyNum.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-      });
-
-      $("btnReset").addEventListener("click", resetForm);
-      $("btnCancelEdit").addEventListener("click", resetForm);
-
-      $("periodType").addEventListener("change", () => renderFilteredView());
-      $("periodValue").addEventListener("change", () => renderFilteredView());
-
-      $("listSearch").addEventListener("input", () => renderFilteredView());
-      $("listCategoryFilter").addEventListener("change", () => renderFilteredView());
-      $("listMethodFilter").addEventListener("change", () => renderFilteredView());
-
-      $("btnClearListFilter").addEventListener("click", () => {
-        $("listSearch").value = "";
-        $("listCategoryFilter").value = "";
-        $("listMethodFilter").value = "";
-        renderFilteredView();
-      });
-
-      window.addEventListener("resize", () => {
-        renderFilteredView();
-      });
-
-      $("entryForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const user = auth.currentUser;
-        if (!user || !isAllowedEmail(user.email)) {
-          alert("허용된 가족 계정으로 로그인해주세요.");
-          return;
-        }
-
-        const date = $("fDate").value;
-        const category = $("fCategory").value.trim() || "기타";
-        const place = $("fPlace").value.trim();
-        const method = $("fMethod").value.trim();
-        const amountNum = Number($("fAmount").value.replace(/[^0-9]/g, "")) || 0;
-        const memo = $("fMemo").value.trim();
-
-        if (!date || !place || !method || amountNum <= 0) {
-          alert("날짜 / 지출처 / 결제수단 / 금액을 확인해주세요.");
-          return;
-        }
-
-        try {
-          if (editingId) {
-            await update(ref(db, "ledgerEntries/" + editingId), {
-              date,
-              category,
-              place,
-              method,
-              amount: amountNum,
-              memo,
-              updatedAt: Date.now(),
-              updatedBy: user.email || ""
-            });
-          } else {
-            const newRef = push(entriesRef);
-            await set(newRef, {
-              date,
-              category,
-              place,
-              method,
-              amount: amountNum,
-              memo,
-              createdAt: Date.now(),
-              createdBy: user.email || ""
-            });
-          }
-          resetForm();
-        } catch (err) {
-          console.error(err);
-          alert("저장 실패: " + err.message);
-        }
-      });
-
-      $("loginBtn").addEventListener("click", async () => {
-        const email = $("email").value.trim().toLowerCase();
-        const password = $("password").value;
-
-        if (!email || !password) {
-          alert("이메일과 비밀번호를 입력해주세요.");
-          return;
-        }
-
-        if (!isAllowedEmail(email)) {
-          alert("등록된 부부 계정만 로그인할 수 있습니다.");
-          return;
-        }
-
-        try {
-          await signInWithEmailAndPassword(auth, email, password);
-        } catch (err) {
-          console.error(err);
-          alert("로그인 실패: " + err.message);
-        }
-      });
-
-      $("logoutBtn").addEventListener("click", async () => {
-        try {
-          await signOut(auth);
-        } catch (err) {
-          console.error(err);
-          alert("로그아웃 실패: " + err.message);
-        }
-      });
-    }
-
-    function startLedgerListener() {
-      if (unsubscribeEntries) unsubscribeEntries();
-
-      unsubscribeEntries = onValue(entriesRef, (snap) => {
-        const data = snap.val() || {};
-
-        currentRows = Object.entries(data)
-          .map(([id, v]) => ({ id, ...v }))
-          .sort((a, b) => {
-            if (a.date === b.date) {
-              return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
-            }
-            return a.date < b.date ? 1 : -1;
-          });
-
-        updateKpis(currentRows);
-        renderFilteredView();
-        $("sync-status").textContent = "실시간 연결됨";
-      }, async (err) => {
-        console.error(err);
-        $("sync-status").textContent = "연결 오류";
-        if (auth.currentUser && !isAllowedEmail(auth.currentUser.email)) {
-          await signOut(auth);
-        }
-      });
-    }
-
-    bindAppEvents();
-    $("fDate").value = todayStr();
-
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const email = (user.email || "").trim().toLowerCase();
-
-        if (!isAllowedEmail(email)) {
-          alert("허용되지 않은 계정입니다.");
-          await signOut(auth);
-          return;
-        }
-
-        $("authSection").classList.add("hidden");
-        $("appSection").classList.remove("hidden");
-        $("userInfo").textContent = `로그인 계정: ${user.email}`;
-        $("sync-status").textContent = "연결 중...";
-        startLedgerListener();
-      } else {
-        $("authSection").classList.remove("hidden");
-        $("appSection").classList.add("hidden");
-        $("userInfo").textContent = "";
-        $("sync-status").textContent = "로그인 필요";
-        if (unsubscribeEntries) {
-          unsubscribeEntries();
-          unsubscribeEntries = null;
-        }
+      if (!email || !password) {
+        els.authStatus.textContent = "이메일과 비밀번호를 입력해주세요.";
+        return;
       }
+
+      try {
+        els.authStatus.textContent = "로그인 중...";
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        if (!isAllowedEmail(cred.user.email)) {
+          await signOut(auth);
+          els.authStatus.textContent = "허용된 계정이 아닙니다.";
+          return;
+        }
+        els.authStatus.textContent = "로그인 성공";
+      } catch (err) {
+        els.authStatus.textContent = `로그인 실패: ${err.message}`;
+      }
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+
+      const user = auth.currentUser;
+      if (!user || !isAllowedEmail(user.email)) {
+        alert("허용된 가족 계정으로 로그인해주세요.");
+        return;
+      }
+
+      const payload = {
+        date: els.fDate.value,
+        category: els.fCategory.value.trim() || "기타",
+        place: els.fPlace.value.trim(),
+        method: els.fMethod.value.trim(),
+        amount: amountToNumber(els.fAmount.value),
+        memo: els.fMemo.value.trim()
+      };
+
+      if (!payload.date || !payload.place || !payload.method || payload.amount <= 0) {
+        alert("날짜 / 지출처 / 결제수단 / 금액을 확인해주세요.");
+        return;
+      }
+
+      try {
+        if (state.editingId) {
+          await update(ref(db, `ledgerEntries/${state.editingId}`), {
+            ...payload,
+            updatedAt: Date.now(),
+            updatedBy: user.email || ""
+          });
+        } else {
+          await set(push(entriesRef), {
+            ...payload,
+            createdAt: Date.now(),
+            createdBy: user.email || ""
+          });
+        }
+        toggleEditMode(false);
+      } catch (err) {
+        alert(`저장 실패: ${err.message}`);
+      }
+    }
+
+    function bindEvents() {
+      [
+        [els.loginBtn, "click", handleLogin],
+        [els.logoutBtn, "click", () => signOut(auth)],
+        [els.entryForm, "submit", handleSubmit],
+        [els.btnReset, "click", () => toggleEditMode(false)],
+        [els.btnCancelEdit, "click", () => toggleEditMode(false)],
+        [els.btnClearFilter, "click", () => {
+          els.globalCategoryFilter.value = "";
+          els.globalMethodFilter.value = "";
+          renderAll();
+        }],
+        [els.btnClearSearch, "click", () => {
+          els.listSearch.value = "";
+          renderAll();
+        }],
+        [els.fCategoryPreset, "change", () => setPreset(els.fCategoryPreset, els.fCategory)],
+        [els.fMethodPreset, "change", () => setPreset(els.fMethodPreset, els.fMethod)],
+        [els.fAmount, "input", e => e.target.value = formatInputNumber(e.target.value)],
+        [els.password, "keydown", e => e.key === "Enter" && handleLogin()]
+      ].forEach(([el, event, fn]) => el.addEventListener(event, fn));
+
+      [els.globalCategoryFilter, els.globalMethodFilter, els.periodType, els.periodValue].forEach(el => {
+        el.addEventListener("change", renderAll);
+      });
+
+      els.listSearch.addEventListener("input", renderAll);
+
+      els.tableBody.addEventListener("click", async e => {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn) return;
+
+        const id = btn.dataset.id;
+        const row = state.rows.find(r => r.id === id);
+        if (!row) return;
+
+        if (btn.dataset.action === "edit") {
+          toggleEditMode(true, row);
+          return;
+        }
+
+        if (btn.dataset.action === "delete" && confirm("이 내역을 삭제할까요?")) {
+          try {
+            await remove(ref(db, `ledgerEntries/${id}`));
+            if (state.editingId === id) toggleEditMode(false);
+          } catch (err) {
+            alert(`삭제 실패: ${err.message}`);
+          }
+        }
+      });
+
+      window.addEventListener("resize", renderAll);
+    }
+
+    function startEntriesListener() {
+      if (state.unsubscribe) state.unsubscribe();
+
+      state.unsubscribe = onValue(entriesRef, snapshot => {
+        const rows = [];
+        snapshot.forEach(child => rows.push({ id: child.key, ...child.val() }));
+        state.rows = rows.sort((a, b) => `${b.date || ""}-${b.createdAt || 0}`.localeCompare(`${a.date || ""}-${a.createdAt || 0}`));
+        els.syncStatus.textContent = "연결됨";
+        renderAll();
+      }, () => {
+        els.syncStatus.textContent = "연결 오류";
+      });
+    }
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        els.authSection.classList.remove("hidden");
+        els.appSection.classList.add("hidden");
+        els.userInfo.textContent = "";
+        els.syncStatus.textContent = "로그아웃됨";
+        state.rows = [];
+        if (state.unsubscribe) {
+          state.unsubscribe();
+          state.unsubscribe = null;
+        }
+        return;
+      }
+
+      if (!isAllowedEmail(user.email)) {
+        await signOut(auth);
+        els.authStatus.textContent = "허용된 계정만 사용할 수 있습니다.";
+        return;
+      }
+
+      els.authSection.classList.add("hidden");
+      els.appSection.classList.remove("hidden");
+      els.userInfo.textContent = `로그인 계정: ${user.email}`;
+      els.syncStatus.textContent = "데이터 불러오는 중...";
+      startEntriesListener();
     });
+
+    els.fDate.value = today();
+    bindEvents();
   </script>
 </body>
 </html>
