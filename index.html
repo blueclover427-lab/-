@@ -1,20 +1,1045 @@
-{
-  "rules": {
-    ".read": false,
-    ".write": false,
-    "ledgerEntries": {
-      ".read": "auth != null && (auth.uid === 'ADlhr8PLqCNwrTSKJR3MX2ZQQC93' || auth.uid === 'AfoVXOPplZQRpO9BrdB2CtKvSz83')",
-      "$entryId": {
-        ".write": "auth != null && (auth.uid === 'ADlhr8PLqCNwrTSKJR3MX2ZQQC93' || auth.uid === 'AfoVXOPplZQRpO9BrdB2CtKvSz83')",
-        ".validate": "newData.hasChildren(['date','category','place','method','amount']) && newData.child('date').isString() && newData.child('date').val().matches(/^\\d{4}-\\d{2}-\\d{2}$/) && newData.child('category').isString() && newData.child('category').val().length > 0 && newData.child('category').val().length <= 30 && newData.child('place').isString() && newData.child('place').val().length > 0 && newData.child('place').val().length <= 100 && newData.child('method').isString() && newData.child('method').val().length > 0 && newData.child('method').val().length <= 50 && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && newData.child('amount').val() <= 1000000000 && (!newData.child('memo').exists() || (newData.child('memo').isString() && newData.child('memo').val().length <= 300)) && (!newData.child('createdAt').exists() || newData.child('createdAt').isNumber()) && (!newData.child('updatedAt').exists() || newData.child('updatedAt').isNumber()) && (!newData.child('createdBy').exists() || newData.child('createdBy').isString()) && (!newData.child('updatedBy').exists() || newData.child('updatedBy').isString())"
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>실시간 부부 가계부</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
+    <section id="authSection" class="max-w-md mx-auto bg-white rounded-xl shadow p-4 mt-8">
+      <h2 class="text-lg font-bold mb-4">로그인</h2>
+      <div class="space-y-3">
+        <input id="email" type="email" autocomplete="username" placeholder="이메일" class="w-full border rounded-lg px-3 py-2" />
+        <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호" class="w-full border rounded-lg px-3 py-2" />
+        <button id="loginBtn" class="w-full bg-indigo-600 text-white rounded-lg px-3 py-2">로그인</button>
+        <p id="authStatus" class="text-sm text-slate-500">Firebase에 등록되고 Database Rules에서 허용된 계정만 사용할 수 있습니다.</p>
+      </div>
+    </section>
+
+    <section id="appSection" class="hidden space-y-6">
+      <header class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div>
+          <h1 class="text-xl font-bold text-indigo-600">실시간 부부 가계부</h1>
+          <p id="userInfo" class="text-xs text-slate-500 mt-1"></p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="sync-status" class="text-xs text-slate-500">연결 중...</span>
+          <button id="logoutBtn" class="px-3 py-1.5 border rounded-lg text-xs text-slate-600">로그아웃</button>
+        </div>
+      </header>
+
+      <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div class="bg-white rounded-xl shadow p-3 text-xs">
+          <div class="text-slate-400">이번 달 합계</div>
+          <div id="kpi-total" class="text-lg font-bold mt-1">0원</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-3 text-xs">
+          <div class="text-slate-400">이번 달 건수</div>
+          <div id="kpi-count" class="text-lg font-bold mt-1">0건</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-3 text-xs">
+          <div class="text-slate-400">평균 지출</div>
+          <div id="kpi-avg" class="text-lg font-bold mt-1">0원</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-3 text-xs">
+          <div class="text-slate-400">이번 달 예산</div>
+          <div id="kpi-budget" class="text-lg font-bold mt-1">미설정</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-3 text-xs">
+          <div class="text-slate-400">잔여 예산</div>
+          <div id="kpi-remaining" class="text-lg font-bold mt-1">-</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-3 text-xs">
+          <div class="text-slate-400">마지막 수정</div>
+          <div id="kpi-updated" class="text-[11px] font-semibold mt-1 text-slate-700">-</div>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl shadow p-4 space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 id="formTitle" class="text-sm font-bold text-slate-800">새 지출 입력</h2>
+          <span id="editBadge" class="hidden text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">수정 모드</span>
+        </div>
+
+        <form id="entryForm" class="grid md:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block mb-1 text-slate-600" for="fDate">날짜</label>
+            <input type="date" id="fDate" class="w-full border rounded-lg px-2 py-1.5 text-sm" required />
+          </div>
+          <div>
+            <label class="block mb-1 text-slate-600" for="fCategory">카테고리</label>
+            <input id="fCategory" list="categoryList" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="목록 선택 또는 직접 입력" required />
+            <datalist id="categoryList"></datalist>
+          </div>
+          <div>
+            <label class="block mb-1 text-slate-600" for="fPlace">지출처</label>
+            <input id="fPlace" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="예: 이마트, 약국" required />
+          </div>
+          <div>
+            <label class="block mb-1 text-slate-600" for="fMethod">결제수단</label>
+            <input id="fMethod" list="methodList" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="목록 선택 또는 직접 입력" required />
+            <datalist id="methodList"></datalist>
+          </div>
+          <div>
+            <label class="block mb-1 text-slate-600" for="fAmount">금액 (원)</label>
+            <input id="fAmount" class="w-full border rounded-lg px-2 py-1.5 text-sm text-right" placeholder="0" inputmode="numeric" required />
+          </div>
+          <div>
+            <label class="block mb-1 text-slate-600" for="fMemo">메모</label>
+            <input id="fMemo" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="선택 사항" />
+          </div>
+          <div class="md:col-span-2 flex gap-2 mt-2">
+            <button type="submit" id="submitBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 rounded-lg">저장하기</button>
+            <button type="button" id="btnCancelEdit" class="hidden px-3 py-2 border rounded-lg text-xs text-amber-700 border-amber-300">수정 취소</button>
+            <button type="button" id="btnReset" class="px-3 py-2 border rounded-lg text-xs text-slate-600">폼 초기화</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="bg-white rounded-xl shadow p-4 space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-bold text-slate-800">조회 기간 및 월 예산</h2>
+            <p class="text-[11px] text-slate-400 mt-1">월별/연도별 통계는 아래 기간 기준으로 계산됩니다.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <select id="periodType" class="border rounded-lg px-2 py-1.5">
+              <option value="month">월별 보기</option>
+              <option value="year">연도별 보기</option>
+            </select>
+            <select id="periodValue" class="border rounded-lg px-2 py-1.5 min-w-32"></select>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-[1fr_auto] gap-2 items-end border rounded-xl p-3 bg-slate-50">
+          <div>
+            <label for="monthlyBudget" class="text-xs font-semibold text-slate-600">선택 월 예산</label>
+            <input id="monthlyBudget" inputmode="numeric" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm text-right bg-white" placeholder="예: 3,000,000" />
+            <p id="budgetHelp" class="text-[11px] text-slate-400 mt-1">월별 보기에서 선택한 달의 예산을 저장할 수 있습니다.</p>
+          </div>
+          <button id="saveBudgetBtn" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold">예산 저장</button>
+        </div>
+
+        <div id="budgetProgressWrap" class="hidden">
+          <div class="flex justify-between text-[11px] mb-1">
+            <span id="budgetProgressText" class="text-slate-600"></span>
+            <span id="budgetRemainingText" class="font-semibold text-slate-700"></span>
+          </div>
+          <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div id="budgetProgressBar" class="h-full bg-teal-500 transition-all" style="width:0%"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl shadow p-4 space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-sm font-bold text-slate-800">지출 그래프 요약</h2>
+          <span id="period-total" class="text-xs font-semibold text-slate-500">0원</span>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="border rounded-xl p-3">
+            <h3 class="text-xs font-semibold text-slate-600 mb-2">카테고리 구성</h3>
+            <canvas id="categoryDonutChart" height="280"></canvas>
+            <p class="mt-2 text-[11px] text-slate-400">비중이 작은 항목은 ... 으로 표시되며 마우스를 올리면 상세 금액을 볼 수 있습니다.</p>
+          </div>
+
+          <div class="border rounded-xl p-3">
+            <h3 class="text-xs font-semibold text-slate-600 mb-2">카테고리별 합계</h3>
+            <canvas id="categoryChart" height="280"></canvas>
+          </div>
+        </div>
+
+        <div class="border rounded-xl p-3">
+          <h3 class="text-xs font-semibold text-slate-600 mb-2">기간 흐름</h3>
+          <canvas id="trendChart" height="130"></canvas>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-sm font-bold text-slate-800">결제수단별 합계</h2>
+            <p class="text-[11px] text-slate-400 mt-1">현재 선택 기간 기준입니다.</p>
+          </div>
+          <span id="method-count" class="text-xs text-slate-400">0개</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr>
+                <th class="px-3 py-2 text-left">결제수단</th>
+                <th class="px-3 py-2 text-right">건수</th>
+                <th class="px-3 py-2 text-right">합계</th>
+                <th class="px-3 py-2 text-right">비중</th>
+              </tr>
+            </thead>
+            <tbody id="methodSummaryBody" class="divide-y"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
+          <div>
+            <h2 class="text-sm font-bold text-slate-800">지출 내역</h2>
+            <span id="row-count" class="text-xs text-slate-400">0건</span>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <button id="exportCsvBtn" class="border rounded-lg px-3 py-2 text-slate-600">현재 목록 CSV</button>
+            <button id="exportExcelBtn" class="border rounded-lg px-3 py-2 text-slate-600">전체 Excel</button>
+            <button id="backupJsonBtn" class="border rounded-lg px-3 py-2 text-slate-600">전체 JSON 백업</button>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-4 gap-2 text-xs">
+          <input id="listSearch" class="border rounded-lg px-3 py-2" placeholder="검색어 (날짜, 지출처, 메모, 카테고리, 결제수단, 금액)" />
+          <select id="listCategoryFilter" class="border rounded-lg px-3 py-2">
+            <option value="">전체 카테고리</option>
+          </select>
+          <select id="listMethodFilter" class="border rounded-lg px-3 py-2">
+            <option value="">전체 결제수단</option>
+          </select>
+          <button id="btnClearListFilter" class="border rounded-lg px-3 py-2 text-slate-600">필터 초기화</button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-[11px]">
+            <thead class="bg-slate-100 text-slate-600">
+              <tr>
+                <th class="px-2 py-1 text-left">날짜</th>
+                <th class="px-2 py-1 text-left">카테고리</th>
+                <th class="px-2 py-1 text-left">지출처</th>
+                <th class="px-2 py-1 text-left">결제수단</th>
+                <th class="px-2 py-1 text-right">금액</th>
+                <th class="px-2 py-1 text-left">메모</th>
+                <th class="px-2 py-1 text-center">관리</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      push,
+      set,
+      onValue,
+      remove,
+      update
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBQ9xAaHvj8EetPngUcikGgfXog9-2kvhE",
+      authDomain: "household-ledger-c5ff8.firebaseapp.com",
+      databaseURL: "https://household-ledger-c5ff8-default-rtdb.firebaseio.com",
+      projectId: "household-ledger-c5ff8",
+      storageBucket: "household-ledger-c5ff8.firebasestorage.app",
+      messagingSenderId: "671578590446",
+      appId: "1:671578590446:web:a8463d32a79cf9af17f7ff",
+      measurementId: "G-JVX0VJ7778"
+    };
+
+    const CATEGORY_OPTIONS = ["식비", "육아", "교육", "주거", "교통", "쇼핑", "의료", "외식", "통신", "생활", "보험", "기타"];
+    const METHOD_OPTIONS = ["국민카드", "하나카드", "삼성카드", "삼성월렛머니", "케이뱅크카드", "계좌이체", "현금"];
+    const categoryColorMap = {
+      "식비": { bg: "rgba(239, 68, 68, 0.82)", border: "#dc2626" },
+      "육아": { bg: "rgba(249, 115, 22, 0.82)", border: "#ea580c" },
+      "교육": { bg: "rgba(234, 179, 8, 0.82)", border: "#ca8a04" },
+      "주거": { bg: "rgba(34, 197, 94, 0.82)", border: "#16a34a" },
+      "교통": { bg: "rgba(6, 182, 212, 0.82)", border: "#0891b2" },
+      "쇼핑": { bg: "rgba(59, 130, 246, 0.82)", border: "#2563eb" },
+      "의료": { bg: "rgba(99, 102, 241, 0.82)", border: "#4f46e5" },
+      "외식": { bg: "rgba(168, 85, 247, 0.82)", border: "#9333ea" },
+      "통신": { bg: "rgba(236, 72, 153, 0.82)", border: "#db2777" },
+      "생활": { bg: "rgba(20, 184, 166, 0.82)", border: "#0f766e" },
+      "보험": { bg: "rgba(132, 204, 22, 0.82)", border: "#65a30d" },
+      "기타": { bg: "rgba(148, 163, 184, 0.82)", border: "#64748b" }
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+    const entriesRef = ref(db, "ledgerEntries");
+    const budgetsRef = ref(db, "ledgerBudgets");
+
+    const $ = (id) => document.getElementById(id);
+    const wonFormatter = new Intl.NumberFormat("ko-KR");
+    const fmt = (value) => `${wonFormatter.format(Number(value) || 0)}원`;
+    const sumAmounts = (rows) => rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const uniqueSorted = (values) => [...new Set(values.filter(Boolean))].sort();
+
+    let unsubscribeEntries = null;
+    let unsubscribeBudgets = null;
+    let currentRows = [];
+    let currentBudgets = {};
+    let editingId = null;
+    let categoryChart = null;
+    let categoryDonutChart = null;
+    let trendChart = null;
+    let accessErrorHandled = false;
+
+    function localDateStr(date = new Date()) {
+      return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")
+      ].join("-");
+    }
+
+    function localMonthStr(date = new Date()) {
+      return localDateStr(date).slice(0, 7);
+    }
+
+    function createOption(value, label = value) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      return option;
+    }
+
+    function fillDatalist(id, presetValues, dataValues) {
+      const list = $(id);
+      const values = uniqueSorted([...presetValues, ...dataValues]);
+      list.replaceChildren(...values.map((value) => createOption(value)));
+    }
+
+    function setMoneyInput(input, rawValue) {
+      const onlyNumbers = String(rawValue ?? "").replace(/[^0-9]/g, "");
+      input.value = onlyNumbers ? wonFormatter.format(Number(onlyNumbers)) : "";
+    }
+
+    function parseMoney(value) {
+      return Number(String(value ?? "").replace(/[^0-9]/g, "")) || 0;
+    }
+
+    function getLatestTimestamp(rows) {
+      return rows.reduce((latest, row) => Math.max(latest, Number(row.updatedAt || row.createdAt || 0)), 0);
+    }
+
+    function getCurrentMonthRows(rows) {
+      const month = localMonthStr();
+      return rows.filter((row) => String(row.date || "").startsWith(month));
+    }
+
+    function groupRows(rows, keyGetter) {
+      const map = new Map();
+      rows.forEach((row) => {
+        const key = keyGetter(row) || "기타";
+        const current = map.get(key) || { amount: 0, count: 0 };
+        current.amount += Number(row.amount) || 0;
+        current.count += 1;
+        map.set(key, current);
+      });
+      return [...map.entries()].sort((a, b) => b[1].amount - a[1].amount);
+    }
+
+    function getCategoryColors(labels) {
+      return {
+        backgrounds: labels.map((label) => (categoryColorMap[label] || categoryColorMap["기타"]).bg),
+        borders: labels.map((label) => (categoryColorMap[label] || categoryColorMap["기타"]).border)
+      };
+    }
+
+    function exitEditMode() {
+      editingId = null;
+      $("formTitle").textContent = "새 지출 입력";
+      $("editBadge").classList.add("hidden");
+      $("btnCancelEdit").classList.add("hidden");
+      $("submitBtn").textContent = "저장하기";
+    }
+
+    function resetForm() {
+      $("entryForm").reset();
+      $("fDate").value = localDateStr();
+      exitEditMode();
+    }
+
+    function enterEditMode(row) {
+      editingId = row.id;
+      $("formTitle").textContent = "지출 내역 수정";
+      $("editBadge").classList.remove("hidden");
+      $("btnCancelEdit").classList.remove("hidden");
+      $("submitBtn").textContent = "수정 저장";
+
+      $("fDate").value = row.date || localDateStr();
+      $("fCategory").value = row.category || "";
+      $("fPlace").value = row.place || "";
+      $("fMethod").value = row.method || "";
+      setMoneyInput($("fAmount"), row.amount || "");
+      $("fMemo").value = row.memo || "";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function buildPeriodOptions(rows, type) {
+      const slices = rows
+        .map((row) => String(row.date || "").slice(0, type === "month" ? 7 : 4))
+        .filter(Boolean);
+
+      if (type === "month") {
+        slices.push(localMonthStr(), ...Object.keys(currentBudgets));
+      } else {
+        slices.push(String(new Date().getFullYear()), ...Object.keys(currentBudgets).map((month) => month.slice(0, 4)));
       }
-    },
-    "ledgerBudgets": {
-      ".read": "auth != null && (auth.uid === 'ADlhr8PLqCNwrTSKJR3MX2ZQQC93' || auth.uid === 'AfoVXOPplZQRpO9BrdB2CtKvSz83')",
-      "$month": {
-        ".write": "auth != null && (auth.uid === 'ADlhr8PLqCNwrTSKJR3MX2ZQQC93' || auth.uid === 'AfoVXOPplZQRpO9BrdB2CtKvSz83')",
-        ".validate": "$month.matches(/^\\d{4}-\\d{2}$/) && newData.hasChildren(['amount','updatedAt','updatedBy']) && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && newData.child('amount').val() <= 1000000000 && newData.child('updatedAt').isNumber() && newData.child('updatedBy').isString()"
+
+      return uniqueSorted(slices).reverse();
+    }
+
+    function fillPeriodOptions() {
+      const type = $("periodType").value;
+      const select = $("periodValue");
+      const current = select.value;
+      const options = buildPeriodOptions(currentRows, type);
+      const preferred = type === "month" ? localMonthStr() : String(new Date().getFullYear());
+
+      select.replaceChildren(...options.map((value) => createOption(value, type === "month" ? `${value} 기준` : `${value}년 기준`)));
+      if (options.includes(current)) select.value = current;
+      else if (options.includes(preferred)) select.value = preferred;
+      else if (options.length) select.value = options[0];
+    }
+
+    function fillListFilterOptions(rows) {
+      const categories = uniqueSorted(rows.map((row) => row.category));
+      const methods = uniqueSorted(rows.map((row) => row.method));
+      const categorySelect = $("listCategoryFilter");
+      const methodSelect = $("listMethodFilter");
+      const currentCategory = categorySelect.value;
+      const currentMethod = methodSelect.value;
+
+      categorySelect.replaceChildren(createOption("", "전체 카테고리"), ...categories.map((value) => createOption(value)));
+      methodSelect.replaceChildren(createOption("", "전체 결제수단"), ...methods.map((value) => createOption(value)));
+      if (categories.includes(currentCategory)) categorySelect.value = currentCategory;
+      if (methods.includes(currentMethod)) methodSelect.value = currentMethod;
+    }
+
+    function refreshInputLists() {
+      fillDatalist("categoryList", CATEGORY_OPTIONS, currentRows.map((row) => row.category));
+      fillDatalist("methodList", METHOD_OPTIONS, currentRows.map((row) => row.method));
+    }
+
+    function getPeriodFilteredRows(rows = currentRows) {
+      const value = $("periodValue").value;
+      if (!value) return [];
+      return rows.filter((row) => String(row.date || "").startsWith(value));
+    }
+
+    function getListFilteredRows(rows) {
+      const search = $("listSearch").value.trim().toLowerCase();
+      const category = $("listCategoryFilter").value;
+      const method = $("listMethodFilter").value;
+
+      return rows.filter((row) => {
+        const searchable = [row.date, row.place, row.memo, row.category, row.method, String(row.amount || "")];
+        const matchesSearch = !search || searchable.filter(Boolean).some((value) => String(value).toLowerCase().includes(search));
+        return matchesSearch && (!category || row.category === category) && (!method || row.method === method);
+      });
+    }
+
+    function buildTrendData(rows, type, selectedValue) {
+      if (!selectedValue) return { labels: [], sums: [], label: "기간 지출" };
+
+      if (type === "month") {
+        const [year, month] = selectedValue.split("-").map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        const labels = Array.from({ length: lastDay }, (_, index) => String(index + 1));
+        const sums = Array(lastDay).fill(0);
+        rows.forEach((row) => {
+          const day = Number(String(row.date || "").slice(8, 10));
+          if (day >= 1 && day <= lastDay) sums[day - 1] += Number(row.amount) || 0;
+        });
+        return { labels, sums, label: `${selectedValue} 일별 지출` };
+      }
+
+      const labels = Array.from({ length: 12 }, (_, index) => `${index + 1}월`);
+      const sums = Array(12).fill(0);
+      rows.forEach((row) => {
+        const month = Number(String(row.date || "").slice(5, 7));
+        if (month >= 1 && month <= 12) sums[month - 1] += Number(row.amount) || 0;
+      });
+      return { labels, sums, label: `${selectedValue} 월별 지출` };
+    }
+
+    function destroyCharts() {
+      [categoryChart, categoryDonutChart, trendChart].forEach((chart) => chart?.destroy());
+      categoryChart = categoryDonutChart = trendChart = null;
+    }
+
+    function renderCharts(rows) {
+      const categoryGroups = groupRows(rows, (row) => row.category || "기타");
+      const categoryLabels = categoryGroups.map(([label]) => label);
+      const categoryValues = categoryGroups.map(([, data]) => data.amount);
+      const total = categoryValues.reduce((sum, value) => sum + value, 0);
+      const colors = getCategoryColors(categoryLabels);
+      const trendData = buildTrendData(rows, $("periodType").value, $("periodValue").value);
+      destroyCharts();
+
+      categoryDonutChart = new Chart($("categoryDonutChart"), {
+        type: "doughnut",
+        data: {
+          labels: categoryLabels,
+          datasets: [{ data: categoryValues, backgroundColor: colors.backgrounds, borderColor: "#ffffff", borderWidth: 2, hoverOffset: 6 }]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          layout: { padding: 12 },
+          cutout: "42%",
+          plugins: {
+            legend: { display: false },
+            datalabels: {
+              color: "#ffffff",
+              textAlign: "center",
+              anchor: "center",
+              align: "center",
+              clamp: true,
+              clip: true,
+              textStrokeColor: "rgba(0,0,0,0.18)",
+              textStrokeWidth: 2,
+              font: (context) => {
+                const value = context.dataset.data[context.dataIndex];
+                const pct = total ? (value / total) * 100 : 0;
+                const isMobile = context.chart.width < 520;
+                return { weight: "700", size: isMobile ? (pct >= 20 ? 12 : 10) : (pct >= 20 ? 18 : 15), lineHeight: 1.15 };
+              },
+              formatter: (value, context) => {
+                const label = context.chart.data.labels[context.dataIndex];
+                const pct = total ? (value / total) * 100 : 0;
+                if (pct < 8) return "...";
+                const shortLabel = String(label).length > 6 ? String(label).slice(0, 6) : String(label);
+                return [shortLabel, fmt(value), `${pct.toFixed(1)}%`];
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = Number(context.raw) || 0;
+                  const pct = total ? ((value / total) * 100).toFixed(1) : "0.0";
+                  return `${context.label}: ${fmt(value)} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      categoryChart = new Chart($("categoryChart"), {
+        type: "bar",
+        data: {
+          labels: categoryLabels,
+          datasets: [{
+            label: "카테고리별 지출",
+            data: categoryValues,
+            backgroundColor: colors.backgrounds,
+            borderColor: colors.borders,
+            borderWidth: 1.5,
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (context) => `${context.label}: ${fmt(context.raw)}` } }
+          },
+          scales: {
+            x: { ticks: { color: "#475569" }, grid: { display: false } },
+            y: { beginAtZero: true, ticks: { color: "#475569", callback: (value) => fmt(value) } }
+          }
+        }
+      });
+
+      trendChart = new Chart($("trendChart"), {
+        type: "line",
+        data: {
+          labels: trendData.labels,
+          datasets: [{
+            label: trendData.label,
+            data: trendData.sums,
+            borderColor: "#0f766e",
+            backgroundColor: "rgba(20, 184, 166, 0.18)",
+            fill: true,
+            tension: 0.25,
+            pointBackgroundColor: "#0f766e",
+            pointBorderColor: "#ffffff",
+            pointBorderWidth: 2,
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true },
+            tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${fmt(context.raw)}` } }
+          },
+          scales: {
+            x: { ticks: { color: "#475569" }, grid: { display: false } },
+            y: { beginAtZero: true, ticks: { color: "#475569", callback: (value) => fmt(value) } }
+          }
+        }
+      });
+    }
+
+    function makeCell(text, className = "") {
+      const td = document.createElement("td");
+      td.className = className;
+      td.textContent = text;
+      return td;
+    }
+
+    function makeActionButton(label, className, datasetKey, datasetValue) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.className = className;
+      button.dataset[datasetKey] = datasetValue;
+      return button;
+    }
+
+    function renderTable(rows) {
+      const tbody = $("tableBody");
+      const fragment = document.createDocumentFragment();
+      $("row-count").textContent = `${rows.length}건`;
+
+      rows.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50";
+        tr.append(
+          makeCell(row.date || "-", "px-2 py-1 whitespace-nowrap"),
+          makeCell(row.category || "-", "px-2 py-1 whitespace-nowrap"),
+          makeCell(row.place || "-", "px-2 py-1 whitespace-nowrap"),
+          makeCell(row.method || "-", "px-2 py-1 whitespace-nowrap"),
+          makeCell(fmt(row.amount), "px-2 py-1 text-right font-semibold"),
+          makeCell(row.memo || "-", "px-2 py-1 whitespace-nowrap")
+        );
+
+        const actionCell = document.createElement("td");
+        actionCell.className = "px-2 py-1 text-center";
+        const wrap = document.createElement("div");
+        wrap.className = "flex justify-center gap-1";
+        wrap.append(
+          makeActionButton("수정", "text-[10px] text-indigo-600 border border-indigo-500 px-1.5 py-0.5 rounded edit-btn", "edit", row.id),
+          makeActionButton("삭제", "text-[10px] text-rose-500 border border-rose-500 px-1.5 py-0.5 rounded delete-btn", "id", row.id)
+        );
+        actionCell.appendChild(wrap);
+        tr.appendChild(actionCell);
+        fragment.appendChild(tr);
+      });
+
+      tbody.replaceChildren(fragment);
+    }
+
+    function renderMethodSummary(rows) {
+      const groups = groupRows(rows, (row) => row.method || "기타");
+      const total = sumAmounts(rows);
+      const fragment = document.createDocumentFragment();
+
+      groups.forEach(([method, data]) => {
+        const tr = document.createElement("tr");
+        const pct = total ? (data.amount / total) * 100 : 0;
+        tr.append(
+          makeCell(method, "px-3 py-2"),
+          makeCell(`${data.count}건`, "px-3 py-2 text-right"),
+          makeCell(fmt(data.amount), "px-3 py-2 text-right font-semibold"),
+          makeCell(`${pct.toFixed(1)}%`, "px-3 py-2 text-right")
+        );
+        fragment.appendChild(tr);
+      });
+
+      if (!groups.length) {
+        const tr = document.createElement("tr");
+        const td = makeCell("선택 기간에 지출 내역이 없습니다.", "px-3 py-4 text-center text-slate-400");
+        td.colSpan = 4;
+        tr.appendChild(td);
+        fragment.appendChild(tr);
+      }
+
+      $("methodSummaryBody").replaceChildren(fragment);
+      $("method-count").textContent = `${groups.length}개`;
+    }
+
+    function updateKpis() {
+      const monthRows = getCurrentMonthRows(currentRows);
+      const total = sumAmounts(monthRows);
+      const monthKey = localMonthStr();
+      const budget = Number(currentBudgets[monthKey]?.amount) || 0;
+      const latest = Math.max(getLatestTimestamp(currentRows), ...Object.values(currentBudgets).map((item) => Number(item?.updatedAt) || 0), 0);
+
+      $("kpi-total").textContent = fmt(total);
+      $("kpi-count").textContent = `${monthRows.length}건`;
+      $("kpi-avg").textContent = monthRows.length ? fmt(Math.round(total / monthRows.length)) : "0원";
+      $("kpi-budget").textContent = budget > 0 ? fmt(budget) : "미설정";
+      $("kpi-remaining").textContent = budget > 0 ? fmt(budget - total) : "-";
+      $("kpi-updated").textContent = latest ? new Date(latest).toLocaleString("ko-KR") : "-";
+    }
+
+    function renderBudgetPanel(periodRows) {
+      const type = $("periodType").value;
+      const selected = $("periodValue").value;
+      const input = $("monthlyBudget");
+      const button = $("saveBudgetBtn");
+      const help = $("budgetHelp");
+      const progressWrap = $("budgetProgressWrap");
+
+      if (type !== "month" || !selected) {
+        input.disabled = true;
+        button.disabled = true;
+        input.value = "";
+        button.classList.add("opacity-50", "cursor-not-allowed");
+        help.textContent = "월별 보기로 전환하면 선택한 달의 예산을 저장할 수 있습니다.";
+        progressWrap.classList.add("hidden");
+        return;
+      }
+
+      input.disabled = false;
+      button.disabled = false;
+      button.classList.remove("opacity-50", "cursor-not-allowed");
+      help.textContent = `${selected} 예산입니다. 0원으로 저장하면 예산 설정을 삭제합니다.`;
+      const budget = Number(currentBudgets[selected]?.amount) || 0;
+      setMoneyInput(input, budget || "");
+
+      if (budget <= 0) {
+        progressWrap.classList.add("hidden");
+        return;
+      }
+
+      const spent = sumAmounts(periodRows);
+      const remaining = budget - spent;
+      const pct = budget ? (spent / budget) * 100 : 0;
+      $("budgetProgressText").textContent = `지출 ${fmt(spent)} / 예산 ${fmt(budget)} (${pct.toFixed(1)}%)`;
+      $("budgetRemainingText").textContent = `잔여 ${fmt(remaining)}`;
+      $("budgetProgressBar").style.width = `${Math.min(Math.max(pct, 0), 100)}%`;
+      progressWrap.classList.remove("hidden");
+    }
+
+    function renderListOnly() {
+      const periodRows = getPeriodFilteredRows();
+      renderTable(getListFilteredRows(periodRows));
+    }
+
+    function renderPeriodView() {
+      const periodRows = getPeriodFilteredRows();
+      fillListFilterOptions(periodRows);
+      renderCharts(periodRows);
+      renderMethodSummary(periodRows);
+      renderBudgetPanel(periodRows);
+      $("period-total").textContent = fmt(sumAmounts(periodRows));
+      renderListOnly();
+    }
+
+    function renderAll() {
+      fillPeriodOptions();
+      refreshInputLists();
+      updateKpis();
+      renderPeriodView();
+    }
+
+    function rowsForExport(rows) {
+      return rows.map((row) => ({
+        날짜: row.date || "",
+        카테고리: row.category || "",
+        지출처: row.place || "",
+        결제수단: row.method || "",
+        금액: Number(row.amount) || 0,
+        메모: row.memo || "",
+        등록일시: row.createdAt ? new Date(row.createdAt).toLocaleString("ko-KR") : "",
+        수정일시: row.updatedAt ? new Date(row.updatedAt).toLocaleString("ko-KR") : ""
+      }));
+    }
+
+    function safeSpreadsheetText(value) {
+      const text = String(value ?? "");
+      return /^[=+\-@]/.test(text) ? `'${text}` : text;
+    }
+
+    function downloadBlob(content, type, filename) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportCsv() {
+      const rows = rowsForExport(getListFilteredRows(getPeriodFilteredRows()));
+      const headers = ["날짜", "카테고리", "지출처", "결제수단", "금액", "메모", "등록일시", "수정일시"];
+      const quote = (value) => `"${safeSpreadsheetText(value).replaceAll('"', '""')}"`;
+      const lines = [headers.map(quote).join(","), ...rows.map((row) => headers.map((header) => quote(row[header])).join(","))];
+      const period = $("periodValue").value || "all";
+      downloadBlob(`\uFEFF${lines.join("\r\n")}`, "text/csv;charset=utf-8", `가계부_${period}.csv`);
+    }
+
+    function exportExcel() {
+      if (!window.XLSX) {
+        alert("Excel 내보내기 라이브러리를 불러오지 못했습니다.");
+        return;
+      }
+
+      const workbook = XLSX.utils.book_new();
+      const allRows = rowsForExport(currentRows);
+      const periodRows = rowsForExport(getPeriodFilteredRows());
+      const methodRows = groupRows(getPeriodFilteredRows(), (row) => row.method || "기타").map(([method, data]) => ({
+        결제수단: safeSpreadsheetText(method),
+        건수: data.count,
+        합계: data.amount
+      }));
+      const budgetRows = Object.entries(currentBudgets).sort().map(([month, item]) => ({
+        월: month,
+        예산: Number(item.amount) || 0,
+        수정일시: item.updatedAt ? new Date(item.updatedAt).toLocaleString("ko-KR") : ""
+      }));
+
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(allRows), "전체지출");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(periodRows), "선택기간");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(methodRows), "결제수단요약");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(budgetRows), "월예산");
+      XLSX.writeFile(workbook, `부부가계부_${localDateStr()}.xlsx`);
+    }
+
+    function backupJson() {
+      const backup = {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        projectId: firebaseConfig.projectId,
+        ledgerEntries: Object.fromEntries(currentRows.map(({ id, ...row }) => [id, row])),
+        ledgerBudgets: currentBudgets
+      };
+      downloadBlob(JSON.stringify(backup, null, 2), "application/json;charset=utf-8", `부부가계부_백업_${localDateStr()}.json`);
+    }
+
+    async function saveBudget() {
+      const user = auth.currentUser;
+      const month = $("periodValue").value;
+      if (!user || $("periodType").value !== "month" || !month) return;
+
+      const amount = parseMoney($("monthlyBudget").value);
+      const budgetRef = ref(db, `ledgerBudgets/${month}`);
+      try {
+        if (amount <= 0) {
+          await remove(budgetRef);
+        } else {
+          await set(budgetRef, { amount, updatedAt: Date.now(), updatedBy: user.uid });
+        }
+      } catch (error) {
+        console.error(error);
+        alert(`예산 저장 실패: ${error.message}`);
       }
     }
-  }
-}
+
+    async function submitEntry(event) {
+      event.preventDefault();
+      const user = auth.currentUser;
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      const payload = {
+        date: $("fDate").value,
+        category: $("fCategory").value.trim() || "기타",
+        place: $("fPlace").value.trim(),
+        method: $("fMethod").value.trim(),
+        amount: parseMoney($("fAmount").value),
+        memo: $("fMemo").value.trim()
+      };
+
+      if (!payload.date || !payload.place || !payload.method || payload.amount <= 0) {
+        alert("날짜 / 지출처 / 결제수단 / 금액을 확인해주세요.");
+        return;
+      }
+
+      try {
+        if (editingId) {
+          await update(ref(db, `ledgerEntries/${editingId}`), {
+            ...payload,
+            updatedAt: Date.now(),
+            updatedBy: user.uid
+          });
+        } else {
+          const newRef = push(entriesRef);
+          await set(newRef, {
+            ...payload,
+            createdAt: Date.now(),
+            createdBy: user.uid
+          });
+        }
+        resetForm();
+      } catch (error) {
+        console.error(error);
+        alert(`저장 실패: ${error.message}`);
+      }
+    }
+
+    async function handleTableClick(event) {
+      const editButton = event.target.closest(".edit-btn");
+      if (editButton) {
+        const row = currentRows.find((item) => item.id === editButton.dataset.edit);
+        if (row) enterEditMode(row);
+        return;
+      }
+
+      const deleteButton = event.target.closest(".delete-btn");
+      if (!deleteButton) return;
+      const id = deleteButton.dataset.id;
+      if (!confirm("이 내역을 삭제할까요?")) return;
+
+      try {
+        await remove(ref(db, `ledgerEntries/${id}`));
+        if (editingId === id) resetForm();
+      } catch (error) {
+        console.error(error);
+        alert(`삭제 실패: ${error.message}`);
+      }
+    }
+
+    function clearListFilters() {
+      $("listSearch").value = "";
+      $("listCategoryFilter").value = "";
+      $("listMethodFilter").value = "";
+      renderListOnly();
+    }
+
+    function bindAppEvents() {
+      $("fAmount").addEventListener("input", (event) => setMoneyInput(event.target, event.target.value));
+      $("monthlyBudget").addEventListener("input", (event) => setMoneyInput(event.target, event.target.value));
+      $("btnReset").addEventListener("click", resetForm);
+      $("btnCancelEdit").addEventListener("click", resetForm);
+      $("entryForm").addEventListener("submit", submitEntry);
+      $("tableBody").addEventListener("click", handleTableClick);
+
+      $("periodType").addEventListener("change", () => {
+        fillPeriodOptions();
+        renderPeriodView();
+      });
+      $("periodValue").addEventListener("change", renderPeriodView);
+      $("listSearch").addEventListener("input", renderListOnly);
+      $("listCategoryFilter").addEventListener("change", renderListOnly);
+      $("listMethodFilter").addEventListener("change", renderListOnly);
+      $("btnClearListFilter").addEventListener("click", clearListFilters);
+      $("saveBudgetBtn").addEventListener("click", saveBudget);
+      $("exportCsvBtn").addEventListener("click", exportCsv);
+      $("exportExcelBtn").addEventListener("click", exportExcel);
+      $("backupJsonBtn").addEventListener("click", backupJson);
+
+      $("loginBtn").addEventListener("click", async () => {
+        const email = $("email").value.trim();
+        const password = $("password").value;
+        if (!email || !password) {
+          alert("이메일과 비밀번호를 입력해주세요.");
+          return;
+        }
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+        } catch (error) {
+          console.error(error);
+          alert(`로그인 실패: ${error.message}`);
+        }
+      });
+
+      $("password").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") $("loginBtn").click();
+      });
+
+      $("logoutBtn").addEventListener("click", async () => {
+        try {
+          await signOut(auth);
+        } catch (error) {
+          console.error(error);
+          alert(`로그아웃 실패: ${error.message}`);
+        }
+      });
+    }
+
+    async function handleAccessError(error) {
+      console.error(error);
+      $("sync-status").textContent = "접근 권한 오류";
+      if (accessErrorHandled) return;
+      accessErrorHandled = true;
+      alert("가계부 데이터 접근 권한이 없습니다. Firebase Realtime Database Rules의 허용 UID를 확인해주세요.");
+      await signOut(auth).catch(console.error);
+    }
+
+    function stopListeners() {
+      unsubscribeEntries?.();
+      unsubscribeBudgets?.();
+      unsubscribeEntries = null;
+      unsubscribeBudgets = null;
+    }
+
+    function startListeners() {
+      stopListeners();
+      accessErrorHandled = false;
+      let entriesLoaded = false;
+      let budgetsLoaded = false;
+
+      const markConnected = () => {
+        if (entriesLoaded && budgetsLoaded) $("sync-status").textContent = "실시간 연결됨";
+      };
+
+      unsubscribeEntries = onValue(entriesRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        currentRows = Object.entries(data)
+          .map(([id, value]) => ({ id, ...value }))
+          .sort((a, b) => {
+            if (a.date === b.date) return Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0);
+            return String(a.date || "") < String(b.date || "") ? 1 : -1;
+          });
+        entriesLoaded = true;
+        renderAll();
+        markConnected();
+      }, handleAccessError);
+
+      unsubscribeBudgets = onValue(budgetsRef, (snapshot) => {
+        currentBudgets = snapshot.val() || {};
+        budgetsLoaded = true;
+        renderAll();
+        markConnected();
+      }, handleAccessError);
+    }
+
+    bindAppEvents();
+    $("fDate").value = localDateStr();
+    refreshInputLists();
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        $("authSection").classList.add("hidden");
+        $("appSection").classList.remove("hidden");
+        $("userInfo").textContent = `로그인 계정: ${user.email || "-"}`;
+        $("sync-status").textContent = "연결 중...";
+        startListeners();
+      } else {
+        stopListeners();
+        destroyCharts();
+        currentRows = [];
+        currentBudgets = {};
+        editingId = null;
+        $("authSection").classList.remove("hidden");
+        $("appSection").classList.add("hidden");
+        $("userInfo").textContent = "";
+        $("sync-status").textContent = "로그인 필요";
+      }
+    });
+  </script>
+</body>
+</html>
