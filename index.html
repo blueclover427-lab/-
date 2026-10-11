@@ -79,6 +79,7 @@
             <select id="fCategory" class="w-full border rounded-lg px-2 py-1.5 text-sm bg-white" required>
               <option value="">카테고리 선택</option>
             </select>
+            <p id="categoryAutoHint" class="hidden mt-1 text-[11px] text-indigo-600"></p>
           </div>
           <div>
             <div class="flex items-center justify-between gap-2 mb-1">
@@ -277,10 +278,18 @@
 
         <div class="p-4 overflow-y-auto space-y-3">
           <p class="text-[11px] leading-5 text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-            여기서 수정한 목록은 앞으로 입력하거나 수정할 때 사용할 선택 목록입니다. 기존에 저장된 지출내역의 카테고리·지출처·결제수단 값은 자동으로 바뀌지 않습니다.
+            목록의 추가·삭제는 기존 지출내역을 바꾸지 않습니다. 이름을 수정한 경우에만 아래 옵션을 선택하면 과거 지출내역의 같은 값도 함께 변경할 수 있습니다.
           </p>
 
           <div id="listEditorRows" class="space-y-2"></div>
+
+          <div class="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 space-y-1.5">
+            <label class="inline-flex items-center gap-2 text-xs font-semibold text-indigo-800 cursor-pointer">
+              <input id="listEditorUpdateHistory" type="checkbox" class="rounded border-slate-300" />
+              이름 수정 시 기존 지출내역도 함께 변경
+            </label>
+            <p id="listEditorHistoryHelp" class="text-[11px] leading-5 text-slate-500">이름을 수정하면 영향을 받는 기존 지출 건수를 표시합니다.</p>
+          </div>
 
           <div class="flex gap-2 pt-2 border-t">
             <input id="listEditorNewItem" class="flex-1 border rounded-lg px-3 py-2 text-sm" placeholder="새 항목 입력" />
@@ -368,6 +377,7 @@
     let currentBudgets = {};
     let currentLists = { categories: null, places: null, methods: null };
     let activeListType = null;
+    let listEditorItemsState = [];
     let editingId = null;
     let editingGroupId = null;
     let categoryChart = null;
@@ -438,8 +448,51 @@
       fillManagedSelect(type, value || "");
     }
 
+    function syncListEditorStateFromDom() {
+      listEditorItemsState = [...document.querySelectorAll("#listEditorRows .list-editor-item")].map((input) => ({
+        value: input.value,
+        originalValue: input.dataset.originalValue || null
+      }));
+      return listEditorItemsState;
+    }
+
     function collectListEditorItems() {
-      return [...document.querySelectorAll("#listEditorRows .list-editor-item")].map((input) => input.value);
+      return syncListEditorStateFromDom().map((item) => item.value);
+    }
+
+    function getListEditorRenames() {
+      syncListEditorStateFromDom();
+      const config = LIST_CONFIG[activeListType];
+      if (!config) return [];
+      return listEditorItemsState
+        .map((item) => ({
+          oldValue: String(item.originalValue || "").trim(),
+          newValue: String(item.value || "").trim().slice(0, config.maxLength)
+        }))
+        .filter((item) => item.oldValue && item.newValue && item.oldValue !== item.newValue);
+    }
+
+    function getHistoryRenameImpact(renames = getListEditorRenames()) {
+      const config = LIST_CONFIG[activeListType];
+      if (!config || !renames.length) return { rows: [], count: 0 };
+      const renameMap = new Map(renames.map(({ oldValue, newValue }) => [oldValue, newValue]));
+      const rows = currentRows.filter((row) => renameMap.has(String(row[config.historyKey] || "")));
+      return { rows, count: rows.length };
+    }
+
+    function updateListEditorHistoryHelp() {
+      const help = $("listEditorHistoryHelp");
+      const checkbox = $("listEditorUpdateHistory");
+      const renames = getListEditorRenames();
+      checkbox.disabled = !renames.length;
+      if (!renames.length) {
+        checkbox.checked = false;
+        help.textContent = "이름을 수정하면 영향을 받는 기존 지출 건수를 표시합니다.";
+        return;
+      }
+      const impact = getHistoryRenameImpact(renames);
+      const details = renames.map(({ oldValue, newValue }) => `${oldValue} → ${newValue}`).join(", ");
+      help.textContent = `이름 변경 ${renames.length}개 (${details}) · 기존 저장 행 ${impact.count}건이 대상입니다.`;
     }
 
     function showListEditorError(message = "") {
@@ -448,17 +501,18 @@
       error.classList.toggle("hidden", !message);
     }
 
-    function renderListEditorRows(values) {
+    function renderListEditorRows(items = listEditorItemsState) {
       const config = LIST_CONFIG[activeListType];
       if (!config) return;
       const fragment = document.createDocumentFragment();
-      values.forEach((value, index) => {
+      items.forEach((item, index) => {
         const row = document.createElement("div");
         row.className = "flex gap-2 items-center";
 
         const input = document.createElement("input");
         input.className = "list-editor-item flex-1 border rounded-lg px-3 py-2 text-sm";
-        input.value = value;
+        input.value = item.value;
+        input.dataset.originalValue = item.originalValue || "";
         input.maxLength = config.maxLength;
         input.setAttribute("aria-label", `${config.label} 항목 ${index + 1}`);
 
@@ -472,18 +526,21 @@
         fragment.appendChild(row);
       });
       $("listEditorRows").replaceChildren(fragment);
+      updateListEditorHistoryHelp();
     }
 
     function openListEditor(type) {
       const config = LIST_CONFIG[type];
       if (!config) return;
       activeListType = type;
+      listEditorItemsState = getEffectiveList(type).map((value) => ({ value, originalValue: value }));
       $("listEditorTitle").textContent = `${config.label} 목록 편집`;
       $("listEditorSubtitle").textContent = `추가·삭제·이름 수정을 한 뒤 목록 저장을 누르세요.`;
       $("listEditorNewItem").value = "";
       $("listEditorNewItem").maxLength = config.maxLength;
+      $("listEditorUpdateHistory").checked = false;
       showListEditorError();
-      renderListEditorRows(getEffectiveList(type));
+      renderListEditorRows();
       const modal = $("listEditorModal");
       modal.classList.remove("hidden");
       modal.classList.add("flex");
@@ -495,32 +552,36 @@
       modal.classList.add("hidden");
       modal.classList.remove("flex");
       activeListType = null;
+      listEditorItemsState = [];
       showListEditorError();
     }
 
     function addListEditorItem() {
       const config = LIST_CONFIG[activeListType];
       if (!config) return;
-      const newValue = $("listEditorNewItem").value.trim();
+      syncListEditorStateFromDom();
+      const newValue = $("listEditorNewItem").value.trim().slice(0, config.maxLength);
       if (!newValue) {
         showListEditorError("추가할 항목을 입력해주세요.");
         return;
       }
-      const values = normalizeManagedList([...collectListEditorItems(), newValue], config.maxLength);
-      if (values.length === normalizeManagedList(collectListEditorItems(), config.maxLength).length) {
+      const currentValues = normalizeManagedList(listEditorItemsState.map((item) => item.value), config.maxLength);
+      if (currentValues.includes(newValue)) {
         showListEditorError("같은 이름의 항목이 이미 있습니다.");
         return;
       }
+      listEditorItemsState.push({ value: newValue, originalValue: null });
       $("listEditorNewItem").value = "";
       showListEditorError();
-      renderListEditorRows(values);
+      renderListEditorRows();
     }
 
     async function saveListEditor() {
       const config = LIST_CONFIG[activeListType];
       const user = auth.currentUser;
       if (!config || !user) return;
-      const rawValues = collectListEditorItems();
+      syncListEditorStateFromDom();
+      const rawValues = listEditorItemsState.map((item) => item.value);
       const values = normalizeManagedList(rawValues, config.maxLength);
       if (!values.length) {
         showListEditorError(`${config.label} 목록에는 최소 1개 이상의 항목이 필요합니다.`);
@@ -532,15 +593,41 @@
         return;
       }
 
+      const renames = getListEditorRenames();
+      const shouldUpdateHistory = $("listEditorUpdateHistory").checked && renames.length > 0;
+      const impact = getHistoryRenameImpact(renames);
+      if (shouldUpdateHistory && impact.count > 0) {
+        const detail = renames.map(({ oldValue, newValue }) => `${oldValue} → ${newValue}`).join("\n");
+        const confirmed = confirm(
+          `${config.label} 목록 이름을 변경하면서 기존 저장 행 ${impact.count}건도 함께 변경합니다.\n\n${detail}\n\n계속할까요?`
+        );
+        if (!confirmed) return;
+      }
+
       const saveButton = $("listEditorSaveBtn");
       saveButton.disabled = true;
       saveButton.classList.add("opacity-50", "cursor-not-allowed");
       try {
-        await update(ref(db, "ledgerSettings"), {
-          [`lists/${activeListType}`]: values,
-          updatedAt: Date.now(),
-          updatedBy: user.uid
-        });
+        const now = Date.now();
+        const updates = {
+          [`ledgerSettings/lists/${activeListType}`]: values,
+          "ledgerSettings/updatedAt": now,
+          "ledgerSettings/updatedBy": user.uid
+        };
+
+        if (shouldUpdateHistory && impact.count > 0) {
+          const renameMap = new Map(renames.map(({ oldValue, newValue }) => [oldValue, newValue]));
+          impact.rows.forEach((row) => {
+            const oldValue = String(row[config.historyKey] || "");
+            const newValue = renameMap.get(oldValue);
+            if (!newValue) return;
+            updates[`ledgerEntries/${row.id}/${config.historyKey}`] = newValue;
+            updates[`ledgerEntries/${row.id}/updatedAt`] = now;
+            updates[`ledgerEntries/${row.id}/updatedBy`] = user.uid;
+          });
+        }
+
+        await update(ref(db), updates);
         closeListEditor();
       } catch (error) {
         console.error(error);
@@ -549,6 +636,48 @@
         saveButton.disabled = false;
         saveButton.classList.remove("opacity-50", "cursor-not-allowed");
       }
+    }
+
+    function getSuggestedCategoryForPlace(place) {
+      const selectedPlace = String(place || "").trim();
+      if (!selectedPlace) return null;
+      const allowedCategories = new Set(getEffectiveList("categories"));
+      const seenTransactions = new Set();
+      const stats = new Map();
+
+      currentRows.forEach((row, index) => {
+        if (String(row.place || "").trim() !== selectedPlace) return;
+        const category = String(row.category || "").trim();
+        if (!category || !allowedCategories.has(category)) return;
+        const transactionKey = row.installmentGroupId ? `installment:${row.installmentGroupId}` : `entry:${row.id}`;
+        if (seenTransactions.has(transactionKey)) return;
+        seenTransactions.add(transactionKey);
+        const stat = stats.get(category) || { count: 0, latestRank: Number.MAX_SAFE_INTEGER };
+        stat.count += 1;
+        stat.latestRank = Math.min(stat.latestRank, index);
+        stats.set(category, stat);
+      });
+
+      const ranked = [...stats.entries()].sort((a, b) => {
+        if (b[1].count !== a[1].count) return b[1].count - a[1].count;
+        if (a[1].latestRank !== b[1].latestRank) return a[1].latestRank - b[1].latestRank;
+        return a[0].localeCompare(b[0], "ko");
+      });
+      if (!ranked.length) return null;
+      return { category: ranked[0][0], count: ranked[0][1].count };
+    }
+
+    function autoSelectCategoryForPlace() {
+      const hint = $("categoryAutoHint");
+      const suggestion = getSuggestedCategoryForPlace($("fPlace").value);
+      if (!suggestion) {
+        hint.textContent = "";
+        hint.classList.add("hidden");
+        return;
+      }
+      setManagedSelectValue("categories", suggestion.category);
+      hint.textContent = `과거 기록 기준 자동 선택: ${suggestion.category} (${suggestion.count}건)`;
+      hint.classList.remove("hidden");
     }
 
     function setMoneyInput(input, rawValue) {
@@ -709,6 +838,8 @@
       $("fInstallmentMonths").value = "2";
       $("fInterestFree").checked = false;
       $("fInstallmentFee").value = "";
+      $("categoryAutoHint").textContent = "";
+      $("categoryAutoHint").classList.add("hidden");
       refreshManagedSelects();
       syncInstallmentFields();
       exitEditMode();
@@ -731,6 +862,8 @@
       setManagedSelectValue("categories", source.category || "");
       setManagedSelectValue("places", source.place || "");
       setManagedSelectValue("methods", source.method || "");
+      $("categoryAutoHint").textContent = "";
+      $("categoryAutoHint").classList.add("hidden");
       $("fMemo").value = source.memo || "";
 
       if (isInstallment) {
@@ -1384,6 +1517,7 @@
       $("btnCancelEdit").addEventListener("click", resetForm);
       $("entryForm").addEventListener("submit", submitEntry);
       $("tableBody").addEventListener("click", handleTableClick);
+      $("fPlace").addEventListener("change", autoSelectCategoryForPlace);
 
       document.querySelectorAll(".list-edit-btn").forEach((button) => {
         button.addEventListener("click", () => openListEditor(button.dataset.listEdit));
@@ -1392,12 +1526,17 @@
       $("listEditorCancelBtn").addEventListener("click", closeListEditor);
       $("listEditorAddBtn").addEventListener("click", addListEditorItem);
       $("listEditorSaveBtn").addEventListener("click", saveListEditor);
+      $("listEditorRows").addEventListener("input", () => {
+        syncListEditorStateFromDom();
+        updateListEditorHistoryHelp();
+        showListEditorError();
+      });
       $("listEditorRows").addEventListener("click", (event) => {
         const button = event.target.closest(".list-editor-remove");
         if (!button) return;
-        const values = collectListEditorItems();
-        values.splice(Number(button.dataset.index), 1);
-        renderListEditorRows(values);
+        syncListEditorStateFromDom();
+        listEditorItemsState.splice(Number(button.dataset.index), 1);
+        renderListEditorRows();
         showListEditorError();
       });
       $("listEditorNewItem").addEventListener("keydown", (event) => {
