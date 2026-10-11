@@ -96,6 +96,14 @@
             <input type="date" id="fDate" class="w-full border rounded-lg px-2 py-1.5 text-sm" required />
           </div>
           <div>
+            <label class="block mb-1 text-slate-600" for="fPlace">지출처</label>
+            <div class="relative">
+              <input id="fPlace" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="예: 이마트, 약국" autocomplete="off" aria-autocomplete="list" aria-controls="placeAutocomplete" required />
+              <div id="placeAutocomplete" role="listbox" class="hidden absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"></div>
+            </div>
+            <p class="mt-1 text-[11px] text-slate-400">직접 입력하거나 과거 지출처 검색 결과를 선택할 수 있습니다.</p>
+          </div>
+          <div>
             <div class="flex items-center justify-between gap-2 mb-1">
               <label class="text-slate-600" for="fCategory">카테고리</label>
               <button type="button" data-list-edit="categories" class="list-edit-btn text-[11px] font-semibold text-indigo-600 hover:text-indigo-800">편집</button>
@@ -104,10 +112,6 @@
               <option value="">카테고리 선택</option>
             </select>
             <p id="categoryAutoHint" class="hidden mt-1 text-[11px] text-indigo-600"></p>
-          </div>
-          <div>
-            <label class="block mb-1 text-slate-600" for="fPlace">지출처</label>
-            <input id="fPlace" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="예: 이마트, 약국" autocomplete="off" required />
           </div>
           <div>
             <div class="flex items-center justify-between gap-2 mb-1">
@@ -698,6 +702,97 @@
       hint.classList.remove("hidden");
     }
 
+    function getPlaceSuggestions(query = "", limit = 8) {
+      const normalizedQuery = String(query || "").trim().toLowerCase();
+      const seenTransactions = new Set();
+      const stats = new Map();
+
+      currentRows.forEach((row, index) => {
+        const place = String(row.place || "").trim();
+        if (!place) return;
+
+        const transactionKey = row.installmentGroupId
+          ? `installment:${row.installmentGroupId}`
+          : `entry:${row.id}`;
+        if (seenTransactions.has(transactionKey)) return;
+        seenTransactions.add(transactionKey);
+
+        const key = place.toLowerCase();
+        const stat = stats.get(key) || { place, count: 0, latestRank: Number.MAX_SAFE_INTEGER };
+        stat.count += 1;
+        stat.latestRank = Math.min(stat.latestRank, index);
+        stats.set(key, stat);
+      });
+
+      return [...stats.values()]
+        .filter((item) => !normalizedQuery || item.place.toLowerCase().includes(normalizedQuery))
+        .sort((a, b) => {
+          if (normalizedQuery) {
+            const aStarts = a.place.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+            const bStarts = b.place.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+            if (aStarts !== bStarts) return aStarts - bStarts;
+            if (b.count !== a.count) return b.count - a.count;
+          }
+          if (a.latestRank !== b.latestRank) return a.latestRank - b.latestRank;
+          if (b.count !== a.count) return b.count - a.count;
+          return a.place.localeCompare(b.place, "ko");
+        })
+        .slice(0, limit);
+    }
+
+    function hidePlaceAutocomplete() {
+      const box = $("placeAutocomplete");
+      box.classList.add("hidden");
+      box.replaceChildren();
+    }
+
+    function renderPlaceAutocomplete() {
+      const input = $("fPlace");
+      const box = $("placeAutocomplete");
+      const suggestions = getPlaceSuggestions(input.value);
+
+      if (!suggestions.length) {
+        hidePlaceAutocomplete();
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      suggestions.forEach(({ place, count }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.setAttribute("role", "option");
+        button.className = "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50 focus:bg-slate-50 focus:outline-none";
+
+        const name = document.createElement("span");
+        name.className = "truncate text-slate-700";
+        name.textContent = place;
+
+        const meta = document.createElement("span");
+        meta.className = "shrink-0 text-[11px] text-slate-400";
+        meta.textContent = `${count}회`;
+
+        button.append(name, meta);
+        button.addEventListener("mousedown", (event) => event.preventDefault());
+        button.addEventListener("click", () => {
+          input.value = place;
+          hidePlaceAutocomplete();
+          autoSelectCategoryForPlace();
+          $("fCategory").focus();
+        });
+        fragment.appendChild(button);
+      });
+
+      box.replaceChildren(fragment);
+      box.classList.remove("hidden");
+    }
+
+    function handlePlaceInput() {
+      const hint = $("categoryAutoHint");
+      hint.textContent = "";
+      hint.classList.add("hidden");
+      renderPlaceAutocomplete();
+    }
+
     function setMoneyInput(input, rawValue) {
       const onlyNumbers = String(rawValue ?? "").replace(/[^0-9]/g, "");
       input.value = onlyNumbers ? wonFormatter.format(Number(onlyNumbers)) : "";
@@ -858,6 +953,7 @@
       $("fInstallmentFee").value = "";
       $("categoryAutoHint").textContent = "";
       $("categoryAutoHint").classList.add("hidden");
+      hidePlaceAutocomplete();
       refreshManagedSelects();
       syncInstallmentFields();
       exitEditMode();
@@ -882,6 +978,7 @@
       setManagedSelectValue("methods", source.method || "");
       $("categoryAutoHint").textContent = "";
       $("categoryAutoHint").classList.add("hidden");
+      hidePlaceAutocomplete();
       $("fMemo").value = source.memo || "";
 
       if (isInstallment) {
@@ -1569,7 +1666,13 @@
       $("btnCancelEdit").addEventListener("click", resetForm);
       $("entryForm").addEventListener("submit", submitEntry);
       $("tableBody").addEventListener("click", handleTableClick);
+      $("fPlace").addEventListener("input", handlePlaceInput);
+      $("fPlace").addEventListener("focus", renderPlaceAutocomplete);
       $("fPlace").addEventListener("change", autoSelectCategoryForPlace);
+      $("fPlace").addEventListener("blur", () => setTimeout(hidePlaceAutocomplete, 120));
+      $("fPlace").addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hidePlaceAutocomplete();
+      });
 
       document.querySelectorAll(".list-edit-btn").forEach((button) => {
         button.addEventListener("click", () => openListEditor(button.dataset.listEdit));
