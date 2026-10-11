@@ -60,6 +60,30 @@
         </div>
       </section>
 
+      <section class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1">
+          <div>
+            <h2 class="text-sm font-bold text-slate-800">진행 중인 할부 요약</h2>
+            <p id="installment-summary-note" class="text-[11px] text-slate-400 mt-1">오늘 이후 예정된 할부 회차를 기준으로 계산합니다.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="border rounded-xl p-3 bg-slate-50 text-xs">
+            <div class="text-slate-400">진행 중인 할부</div>
+            <div id="installment-active-count" class="text-lg font-bold mt-1 text-indigo-700">0건</div>
+          </div>
+          <div class="border rounded-xl p-3 bg-slate-50 text-xs">
+            <div class="text-slate-400">남은 할부금</div>
+            <div id="installment-remaining-amount" class="text-lg font-bold mt-1">0원</div>
+          </div>
+          <div class="border rounded-xl p-3 bg-slate-50 text-xs">
+            <div class="text-slate-400">잔여 개월</div>
+            <div id="installment-remaining-months" class="text-lg font-bold mt-1">0개월</div>
+            <div class="text-[10px] text-slate-400 mt-1">가장 오래 남은 할부 기준</div>
+          </div>
+        </div>
+      </section>
+
       <section class="bg-white rounded-xl shadow p-4 space-y-4">
         <div class="flex justify-between items-center">
           <h2 id="formTitle" class="text-sm font-bold text-slate-800">새 지출 입력</h2>
@@ -82,13 +106,8 @@
             <p id="categoryAutoHint" class="hidden mt-1 text-[11px] text-indigo-600"></p>
           </div>
           <div>
-            <div class="flex items-center justify-between gap-2 mb-1">
-              <label class="text-slate-600" for="fPlace">지출처</label>
-              <button type="button" data-list-edit="places" class="list-edit-btn text-[11px] font-semibold text-indigo-600 hover:text-indigo-800">편집</button>
-            </div>
-            <select id="fPlace" class="w-full border rounded-lg px-2 py-1.5 text-sm bg-white" required>
-              <option value="">지출처 선택</option>
-            </select>
+            <label class="block mb-1 text-slate-600" for="fPlace">지출처</label>
+            <input id="fPlace" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="예: 이마트, 약국" autocomplete="off" required />
           </div>
           <div>
             <div class="flex items-center justify-between gap-2 mb-1">
@@ -307,7 +326,7 @@
   </main>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
     import {
       getDatabase,
       ref,
@@ -316,13 +335,13 @@
       onValue,
       remove,
       update
-    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+    } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
     import {
       getAuth,
       onAuthStateChanged,
       signInWithEmailAndPassword,
       signOut
-    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBQ9xAaHvj8EetPngUcikGgfXog9-2kvhE",
@@ -339,7 +358,6 @@
     const DEFAULT_METHOD_OPTIONS = ["국민카드", "하나카드", "삼성카드", "삼성월렛머니", "케이뱅크카드", "계좌이체", "현금"];
     const LIST_CONFIG = {
       categories: { label: "카테고리", selectId: "fCategory", placeholder: "카테고리 선택", historyKey: "category", maxLength: 30, defaults: DEFAULT_CATEGORY_OPTIONS },
-      places: { label: "지출처", selectId: "fPlace", placeholder: "지출처 선택", historyKey: "place", maxLength: 100, defaults: [] },
       methods: { label: "결제수단", selectId: "fMethod", placeholder: "결제수단 선택", historyKey: "method", maxLength: 50, defaults: DEFAULT_METHOD_OPTIONS }
     };
     const categoryColorMap = {
@@ -375,7 +393,7 @@
     let unsubscribeSettings = null;
     let currentRows = [];
     let currentBudgets = {};
-    let currentLists = { categories: null, places: null, methods: null };
+    let currentLists = { categories: null, methods: null };
     let activeListType = null;
     let listEditorItemsState = [];
     let editingId = null;
@@ -860,7 +878,7 @@
 
       $("fDate").value = isInstallment ? (source.installmentOriginalDate || source.date || localDateStr()) : (row.date || localDateStr());
       setManagedSelectValue("categories", source.category || "");
-      setManagedSelectValue("places", source.place || "");
+      $("fPlace").value = source.place || "";
       setManagedSelectValue("methods", source.method || "");
       $("categoryAutoHint").textContent = "";
       $("categoryAutoHint").classList.add("hidden");
@@ -1184,6 +1202,40 @@
       $("method-count").textContent = `${groups.length}개`;
     }
 
+    function getActiveInstallmentSummary() {
+      const today = localDateStr();
+      const groups = new Map();
+
+      currentRows.forEach((row) => {
+        if (row.installment !== true || !row.installmentGroupId) return;
+        const group = groups.get(row.installmentGroupId) || [];
+        group.push(row);
+        groups.set(row.installmentGroupId, group);
+      });
+
+      let activeCount = 0;
+      let remainingAmount = 0;
+      let maxRemainingMonths = 0;
+
+      groups.forEach((rows) => {
+        const remainingRows = rows.filter((row) => String(row.date || "") >= today);
+        if (!remainingRows.length) return;
+        activeCount += 1;
+        remainingAmount += sumAmounts(remainingRows);
+        maxRemainingMonths = Math.max(maxRemainingMonths, remainingRows.length);
+      });
+
+      return { activeCount, remainingAmount, maxRemainingMonths };
+    }
+
+    function updateInstallmentSummary() {
+      const summary = getActiveInstallmentSummary();
+      $("installment-active-count").textContent = `${summary.activeCount}건`;
+      $("installment-remaining-amount").textContent = fmt(summary.remainingAmount);
+      $("installment-remaining-months").textContent = summary.maxRemainingMonths > 0 ? `최대 ${summary.maxRemainingMonths}개월` : "0개월";
+      $("installment-summary-note").textContent = `${localDateStr()} 포함 이후 예정 회차 기준 · 이미 지난 회차는 제외합니다.`;
+    }
+
     function updateKpis() {
       const monthRows = getCurrentMonthRows(currentRows);
       const total = sumAmounts(monthRows);
@@ -1257,6 +1309,7 @@
       fillPeriodOptions();
       refreshInputLists();
       updateKpis();
+      updateInstallmentSummary();
       renderPeriodView();
     }
 
@@ -1338,7 +1391,7 @@
 
     function backupJson() {
       const backup = {
-        schemaVersion: 3,
+        schemaVersion: 4,
         exportedAt: new Date().toISOString(),
         projectId: firebaseConfig.projectId,
         ledgerEntries: Object.fromEntries(currentRows.map(({ id, ...row }) => [id, row])),
@@ -1346,7 +1399,6 @@
         ledgerSettings: {
           lists: {
             categories: getEffectiveList("categories"),
-            places: getEffectiveList("places"),
             methods: getEffectiveList("methods")
           }
         }
@@ -1648,7 +1700,6 @@
         const data = snapshot.val() || {};
         currentLists = {
           categories: Object.prototype.hasOwnProperty.call(data, "categories") ? data.categories : null,
-          places: Object.prototype.hasOwnProperty.call(data, "places") ? data.places : null,
           methods: Object.prototype.hasOwnProperty.call(data, "methods") ? data.methods : null
         };
         settingsLoaded = true;
@@ -1674,7 +1725,7 @@
         destroyCharts();
         currentRows = [];
         currentBudgets = {};
-        currentLists = { categories: null, places: null, methods: null };
+        currentLists = { categories: null, methods: null };
         editingId = null;
         editingGroupId = null;
         closeListEditor();
