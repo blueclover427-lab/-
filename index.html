@@ -87,9 +87,33 @@
           </div>
           <div>
             <label class="block mb-1 text-slate-600" for="fAmount">금액 (원)</label>
-            <input id="fAmount" class="w-full border rounded-lg px-2 py-1.5 text-sm text-right" placeholder="0" inputmode="numeric" required />
+            <input id="fAmount" class="w-full border rounded-lg px-2 py-1.5 text-sm text-right" placeholder="원금 총액" inputmode="numeric" required />
           </div>
           <div>
+            <label class="block mb-1 text-slate-600" for="fInstallment">할부 여부</label>
+            <select id="fInstallment" class="w-full border rounded-lg px-2 py-1.5 text-sm">
+              <option value="no">일시불</option>
+              <option value="yes">할부</option>
+            </select>
+          </div>
+          <div id="installmentFields" class="hidden md:col-span-2 grid md:grid-cols-2 gap-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
+            <div>
+              <label class="block mb-1 text-slate-600" for="fInstallmentMonths">할부 개월 수</label>
+              <input id="fInstallmentMonths" type="number" min="2" max="60" step="1" value="2" class="w-full border rounded-lg px-2 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <div class="flex items-center justify-between gap-3 mb-1">
+                <label class="text-slate-600" for="fInstallmentFee">총 할부 수수료 (원)</label>
+                <label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 cursor-pointer">
+                  <input id="fInterestFree" type="checkbox" class="rounded border-slate-300" />
+                  무이자 할부
+                </label>
+              </div>
+              <input id="fInstallmentFee" class="w-full border rounded-lg px-2 py-1.5 text-sm text-right bg-white" placeholder="수수료 총액" inputmode="numeric" />
+            </div>
+            <p id="installmentPreview" class="md:col-span-2 text-[11px] text-slate-500">원금과 총 수수료를 할부 개월 수로 나누어 결제 월부터 자동 반영합니다. 무이자 할부를 체크하면 수수료는 자동으로 0원 처리됩니다.</p>
+          </div>
+          <div class="md:col-span-2">
             <label class="block mb-1 text-slate-600" for="fMemo">메모</label>
             <input id="fMemo" class="w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="선택 사항" />
           </div>
@@ -198,7 +222,7 @@
         </div>
 
         <div class="grid md:grid-cols-4 gap-2 text-xs">
-          <input id="listSearch" class="border rounded-lg px-3 py-2" placeholder="검색어 (날짜, 지출처, 메모, 카테고리, 결제수단, 금액)" />
+          <input id="listSearch" class="border rounded-lg px-3 py-2" placeholder="검색어 (날짜, 지출처, 메모, 카테고리, 결제수단, 금액, 할부)" />
           <select id="listCategoryFilter" class="border rounded-lg px-3 py-2">
             <option value="">전체 카테고리</option>
           </select>
@@ -217,6 +241,7 @@
                 <th class="px-2 py-1 text-left">지출처</th>
                 <th class="px-2 py-1 text-left">결제수단</th>
                 <th class="px-2 py-1 text-right">금액</th>
+                <th class="px-2 py-1 text-center">할부</th>
                 <th class="px-2 py-1 text-left">메모</th>
                 <th class="px-2 py-1 text-center">관리</th>
               </tr>
@@ -291,6 +316,7 @@
     let currentRows = [];
     let currentBudgets = {};
     let editingId = null;
+    let editingGroupId = null;
     let categoryChart = null;
     let categoryDonutChart = null;
     let trendChart = null;
@@ -330,6 +356,110 @@
       return Number(String(value ?? "").replace(/[^0-9]/g, "")) || 0;
     }
 
+    function splitInteger(total, parts) {
+      const count = Math.max(1, Math.trunc(Number(parts) || 1));
+      const safeTotal = Math.max(0, Math.trunc(Number(total) || 0));
+      const base = Math.floor(safeTotal / count);
+      const remainder = safeTotal - (base * count);
+      return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
+    }
+
+    function addMonthsClamped(dateStr, offset) {
+      const [year, month, day] = String(dateStr || "").split("-").map(Number);
+      if (!year || !month || !day) return dateStr;
+      const target = new Date(year, month - 1 + offset, 1);
+      const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      const safeDay = Math.min(day, lastDay);
+      return [
+        target.getFullYear(),
+        String(target.getMonth() + 1).padStart(2, "0"),
+        String(safeDay).padStart(2, "0")
+      ].join("-");
+    }
+
+    function getInstallmentGroupRows(groupId) {
+      if (!groupId) return [];
+      return currentRows
+        .filter((row) => row.installment === true && row.installmentGroupId === groupId)
+        .sort((a, b) => Number(a.installmentNumber || 0) - Number(b.installmentNumber || 0));
+    }
+
+    function updateInstallmentPreview() {
+      if ($("fInstallment").value !== "yes") return;
+      const principal = parseMoney($("fAmount").value);
+      const fee = parseMoney($("fInstallmentFee").value);
+      const months = Math.trunc(Number($("fInstallmentMonths").value) || 0);
+      const preview = $("installmentPreview");
+
+      if (!principal || months < 2 || months > 60) {
+        preview.textContent = "원금과 2~60개월의 할부 개월 수를 입력해주세요.";
+        return;
+      }
+
+      const principalParts = splitInteger(principal, months);
+      const feeParts = splitInteger(fee, months);
+      const payments = principalParts.map((value, index) => value + feeParts[index]);
+      const minPayment = Math.min(...payments);
+      const maxPayment = Math.max(...payments);
+      const paymentText = minPayment === maxPayment ? fmt(minPayment) : `${fmt(minPayment)}~${fmt(maxPayment)}`;
+      preview.textContent = `총 ${fmt(principal + fee)} = 원금 ${fmt(principal)} + 수수료 ${fmt(fee)} · ${months}개월 · 월 ${paymentText} · 구매월부터 반영`;
+    }
+
+    function syncInterestFreeFee() {
+      const installmentEnabled = $("fInstallment").value === "yes";
+      const interestFree = installmentEnabled && $("fInterestFree").checked;
+      const feeInput = $("fInstallmentFee");
+
+      feeInput.disabled = !installmentEnabled || interestFree;
+      feeInput.classList.toggle("bg-slate-100", !installmentEnabled || interestFree);
+      feeInput.classList.toggle("text-slate-400", !installmentEnabled || interestFree);
+      feeInput.classList.toggle("bg-white", installmentEnabled && !interestFree);
+
+      if (interestFree) setMoneyInput(feeInput, 0);
+      updateInstallmentPreview();
+    }
+
+    function syncInstallmentFields() {
+      const enabled = $("fInstallment").value === "yes";
+      $("installmentFields").classList.toggle("hidden", !enabled);
+      $("fInstallmentMonths").disabled = !enabled;
+      $("fInterestFree").disabled = !enabled;
+      if (!enabled) $("fInterestFree").checked = false;
+      syncInterestFreeFee();
+    }
+
+    function buildInstallmentEntries(basePayload, months, feeTotal, user, groupId, createdAt, createdBy, updatedAt = null) {
+      const principalParts = splitInteger(basePayload.amount, months);
+      const feeParts = splitInteger(feeTotal, months);
+
+      return principalParts.map((principalPart, index) => {
+        const row = {
+          date: addMonthsClamped(basePayload.date, index),
+          category: basePayload.category,
+          place: basePayload.place,
+          method: basePayload.method,
+          amount: principalPart + feeParts[index],
+          memo: basePayload.memo,
+          installment: true,
+          installmentGroupId: groupId,
+          installmentNumber: index + 1,
+          installmentMonths: months,
+          installmentPrincipalTotal: basePayload.amount,
+          installmentFeeTotal: feeTotal,
+          installmentPrincipalPart: principalPart,
+          installmentFeePart: feeParts[index],
+          installmentOriginalDate: basePayload.date,
+          createdAt,
+          createdBy
+        };
+        if (updatedAt) {
+          row.updatedAt = updatedAt;
+          row.updatedBy = user.uid;
+        }
+        return row;
+      });
+    }
+
     function getLatestTimestamp(rows) {
       return rows.reduce((latest, row) => Math.max(latest, Number(row.updatedAt || row.createdAt || 0)), 0);
     }
@@ -360,7 +490,9 @@
 
     function exitEditMode() {
       editingId = null;
+      editingGroupId = null;
       $("formTitle").textContent = "새 지출 입력";
+      $("editBadge").textContent = "수정 모드";
       $("editBadge").classList.add("hidden");
       $("btnCancelEdit").classList.add("hidden");
       $("submitBtn").textContent = "저장하기";
@@ -369,22 +501,50 @@
     function resetForm() {
       $("entryForm").reset();
       $("fDate").value = localDateStr();
+      $("fInstallment").value = "no";
+      $("fInstallmentMonths").value = "2";
+      $("fInterestFree").checked = false;
+      $("fInstallmentFee").value = "";
+      syncInstallmentFields();
       exitEditMode();
     }
 
     function enterEditMode(row) {
-      editingId = row.id;
-      $("formTitle").textContent = "지출 내역 수정";
+      const isInstallment = row.installment === true && row.installmentGroupId;
+      const groupRows = isInstallment ? getInstallmentGroupRows(row.installmentGroupId) : [];
+      const source = groupRows[0] || row;
+
+      editingId = isInstallment ? null : row.id;
+      editingGroupId = isInstallment ? row.installmentGroupId : null;
+      $("formTitle").textContent = isInstallment ? "할부 지출 전체 수정" : "지출 내역 수정";
+      $("editBadge").textContent = isInstallment ? `할부 ${source.installmentMonths || groupRows.length}개월 전체 수정` : "수정 모드";
       $("editBadge").classList.remove("hidden");
       $("btnCancelEdit").classList.remove("hidden");
       $("submitBtn").textContent = "수정 저장";
 
-      $("fDate").value = row.date || localDateStr();
-      $("fCategory").value = row.category || "";
-      $("fPlace").value = row.place || "";
-      $("fMethod").value = row.method || "";
-      setMoneyInput($("fAmount"), row.amount || "");
-      $("fMemo").value = row.memo || "";
+      $("fDate").value = isInstallment ? (source.installmentOriginalDate || source.date || localDateStr()) : (row.date || localDateStr());
+      $("fCategory").value = source.category || "";
+      $("fPlace").value = source.place || "";
+      $("fMethod").value = source.method || "";
+      $("fMemo").value = source.memo || "";
+
+      if (isInstallment) {
+        const principalTotal = Number(source.installmentPrincipalTotal) || groupRows.reduce((sum, item) => sum + (Number(item.installmentPrincipalPart) || 0), 0);
+        const feeTotal = Number(source.installmentFeeTotal) || groupRows.reduce((sum, item) => sum + (Number(item.installmentFeePart) || 0), 0);
+        setMoneyInput($("fAmount"), principalTotal);
+        $("fInstallment").value = "yes";
+        $("fInstallmentMonths").value = String(source.installmentMonths || groupRows.length || 2);
+        $("fInterestFree").checked = feeTotal === 0;
+        setMoneyInput($("fInstallmentFee"), feeTotal);
+      } else {
+        setMoneyInput($("fAmount"), row.amount || "");
+        $("fInstallment").value = "no";
+        $("fInstallmentMonths").value = "2";
+        $("fInterestFree").checked = false;
+        $("fInstallmentFee").value = "";
+      }
+
+      syncInstallmentFields();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -446,7 +606,12 @@
       const method = $("listMethodFilter").value;
 
       return rows.filter((row) => {
-        const searchable = [row.date, row.place, row.memo, row.category, row.method, String(row.amount || "")];
+        const searchable = [
+          row.date, row.place, row.memo, row.category, row.method, String(row.amount || ""),
+          row.installment === true ? "할부" : "일시불",
+          row.installmentMonths ? `${row.installmentMonths}개월` : "",
+          row.installmentNumber && row.installmentMonths ? `${row.installmentNumber}/${row.installmentMonths}` : ""
+        ];
         const matchesSearch = !search || searchable.filter(Boolean).some((value) => String(value).toLowerCase().includes(search));
         return matchesSearch && (!category || row.category === category) && (!method || row.method === method);
       });
@@ -625,9 +790,17 @@
           makeCell(row.category || "-", "px-2 py-1 whitespace-nowrap"),
           makeCell(row.place || "-", "px-2 py-1 whitespace-nowrap"),
           makeCell(row.method || "-", "px-2 py-1 whitespace-nowrap"),
-          makeCell(fmt(row.amount), "px-2 py-1 text-right font-semibold"),
-          makeCell(row.memo || "-", "px-2 py-1 whitespace-nowrap")
+          makeCell(fmt(row.amount), "px-2 py-1 text-right font-semibold")
         );
+
+        const installmentCell = makeCell(
+          row.installment === true ? `${row.installmentNumber || "?"}/${row.installmentMonths || "?"}` : "일시불",
+          row.installment === true ? "px-2 py-1 text-center whitespace-nowrap font-semibold text-indigo-600" : "px-2 py-1 text-center whitespace-nowrap text-slate-400"
+        );
+        if (row.installment === true) {
+          installmentCell.title = `총 원금 ${fmt(row.installmentPrincipalTotal)} / 총 수수료 ${fmt(row.installmentFeeTotal)} / 이번 회차 수수료 ${fmt(row.installmentFeePart)}`;
+        }
+        tr.append(installmentCell, makeCell(row.memo || "-", "px-2 py-1 whitespace-nowrap"));
 
         const actionCell = document.createElement("td");
         actionCell.className = "px-2 py-1 text-center";
@@ -757,6 +930,12 @@
         지출처: row.place || "",
         결제수단: row.method || "",
         금액: Number(row.amount) || 0,
+        할부유형: row.installment === true ? "할부" : "일시불",
+        할부회차: row.installment === true ? Number(row.installmentNumber) || "" : "",
+        할부개월: row.installment === true ? Number(row.installmentMonths) || "" : "",
+        원금총액: row.installment === true ? Number(row.installmentPrincipalTotal) || 0 : "",
+        할부수수료총액: row.installment === true ? Number(row.installmentFeeTotal) || 0 : "",
+        해당회차수수료: row.installment === true ? Number(row.installmentFeePart) || 0 : "",
         메모: row.memo || "",
         등록일시: row.createdAt ? new Date(row.createdAt).toLocaleString("ko-KR") : "",
         수정일시: row.updatedAt ? new Date(row.updatedAt).toLocaleString("ko-KR") : ""
@@ -782,7 +961,7 @@
 
     function exportCsv() {
       const rows = rowsForExport(getListFilteredRows(getPeriodFilteredRows()));
-      const headers = ["날짜", "카테고리", "지출처", "결제수단", "금액", "메모", "등록일시", "수정일시"];
+      const headers = ["날짜", "카테고리", "지출처", "결제수단", "금액", "할부유형", "할부회차", "할부개월", "원금총액", "할부수수료총액", "해당회차수수료", "메모", "등록일시", "수정일시"];
       const quote = (value) => `"${safeSpreadsheetText(value).replaceAll('"', '""')}"`;
       const lines = [headers.map(quote).join(","), ...rows.map((row) => headers.map((header) => quote(row[header])).join(","))];
       const period = $("periodValue").value || "all";
@@ -818,7 +997,7 @@
 
     function backupJson() {
       const backup = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: new Date().toISOString(),
         projectId: firebaseConfig.projectId,
         ledgerEntries: Object.fromEntries(currentRows.map(({ id, ...row }) => [id, row])),
@@ -868,20 +1047,62 @@
         return;
       }
 
+      const installmentEnabled = $("fInstallment").value === "yes";
+      const months = Math.trunc(Number($("fInstallmentMonths").value) || 0);
+      const interestFree = installmentEnabled && $("fInterestFree").checked;
+      const feeTotal = interestFree ? 0 : parseMoney($("fInstallmentFee").value);
+      if (installmentEnabled && (months < 2 || months > 60)) {
+        alert("할부 개월 수는 2~60개월 사이로 입력해주세요.");
+        return;
+      }
+      if (installmentEnabled && (payload.amount + feeTotal) < months) {
+        alert("할부 총액이 개월 수보다 작아 월별 금액을 1원 이상 배분할 수 없습니다.");
+        return;
+      }
+      if (payload.amount > 1000000000 || feeTotal > 1000000000) {
+        alert("금액 또는 할부 수수료가 허용 범위를 초과했습니다.");
+        return;
+      }
+
+      const now = Date.now();
+      const oldRows = editingGroupId
+        ? getInstallmentGroupRows(editingGroupId)
+        : (editingId ? currentRows.filter((row) => row.id === editingId) : []);
+      const originalCreatedAt = oldRows.length
+        ? Math.min(...oldRows.map((row) => Number(row.createdAt) || now))
+        : now;
+      const originalCreatedBy = oldRows.find((row) => row.createdBy)?.createdBy || user.uid;
+
       try {
-        if (editingId) {
+        if (!installmentEnabled && editingId && !editingGroupId) {
           await update(ref(db, `ledgerEntries/${editingId}`), {
             ...payload,
-            updatedAt: Date.now(),
+            updatedAt: now,
             updatedBy: user.uid
           });
-        } else {
-          const newRef = push(entriesRef);
-          await set(newRef, {
+        } else if (!installmentEnabled) {
+          const updates = {};
+          oldRows.forEach((row) => { updates[row.id] = null; });
+          const targetId = oldRows[0]?.id || push(entriesRef).key;
+          updates[targetId] = {
             ...payload,
-            createdAt: Date.now(),
-            createdBy: user.uid
+            createdAt: originalCreatedAt,
+            createdBy: originalCreatedBy,
+            ...(oldRows.length ? { updatedAt: now, updatedBy: user.uid } : {})
+          };
+          await update(entriesRef, updates);
+        } else {
+          const groupId = editingGroupId || `inst_${push(entriesRef).key}`;
+          const installmentRows = buildInstallmentEntries(
+            payload, months, feeTotal, user, groupId, originalCreatedAt, originalCreatedBy, oldRows.length ? now : null
+          );
+          const updates = {};
+          oldRows.forEach((row) => { updates[row.id] = null; });
+          installmentRows.forEach((row, index) => {
+            const targetId = oldRows[index]?.id || push(entriesRef).key;
+            updates[targetId] = row;
           });
+          await update(entriesRef, updates);
         }
         resetForm();
       } catch (error) {
@@ -901,11 +1122,23 @@
       const deleteButton = event.target.closest(".delete-btn");
       if (!deleteButton) return;
       const id = deleteButton.dataset.id;
-      if (!confirm("이 내역을 삭제할까요?")) return;
+      const row = currentRows.find((item) => item.id === id);
+      if (!row) return;
 
       try {
-        await remove(ref(db, `ledgerEntries/${id}`));
-        if (editingId === id) resetForm();
+        if (row.installment === true && row.installmentGroupId) {
+          const groupRows = getInstallmentGroupRows(row.installmentGroupId);
+          const months = row.installmentMonths || groupRows.length;
+          if (!confirm(`이 할부 결제 전체 ${months}개월 내역을 삭제할까요?`)) return;
+          const updates = {};
+          groupRows.forEach((item) => { updates[item.id] = null; });
+          await update(entriesRef, updates);
+          if (editingGroupId === row.installmentGroupId) resetForm();
+        } else {
+          if (!confirm("이 내역을 삭제할까요?")) return;
+          await remove(ref(db, `ledgerEntries/${id}`));
+          if (editingId === id) resetForm();
+        }
       } catch (error) {
         console.error(error);
         alert(`삭제 실패: ${error.message}`);
@@ -920,7 +1153,17 @@
     }
 
     function bindAppEvents() {
-      $("fAmount").addEventListener("input", (event) => setMoneyInput(event.target, event.target.value));
+      $("fAmount").addEventListener("input", (event) => {
+        setMoneyInput(event.target, event.target.value);
+        updateInstallmentPreview();
+      });
+      $("fInstallment").addEventListener("change", syncInstallmentFields);
+      $("fInstallmentMonths").addEventListener("input", updateInstallmentPreview);
+      $("fInterestFree").addEventListener("change", syncInterestFreeFee);
+      $("fInstallmentFee").addEventListener("input", (event) => {
+        setMoneyInput(event.target, event.target.value);
+        updateInstallmentPreview();
+      });
       $("monthlyBudget").addEventListener("input", (event) => setMoneyInput(event.target, event.target.value));
       $("btnReset").addEventListener("click", resetForm);
       $("btnCancelEdit").addEventListener("click", resetForm);
@@ -1019,6 +1262,7 @@
 
     bindAppEvents();
     $("fDate").value = localDateStr();
+    syncInstallmentFields();
     refreshInputLists();
 
     onAuthStateChanged(auth, (user) => {
@@ -1034,6 +1278,7 @@
         currentRows = [];
         currentBudgets = {};
         editingId = null;
+        editingGroupId = null;
         $("authSection").classList.remove("hidden");
         $("appSection").classList.add("hidden");
         $("userInfo").textContent = "";
