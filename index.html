@@ -532,7 +532,7 @@
         row.className = "flex gap-2 items-center";
 
         const input = document.createElement("input");
-        input.className = "list-editor-item flex-1 border rounded-lg px-3 py-2 text-sm";
+        input.className = "list-editor-item min-w-0 flex-1 border rounded-lg px-3 py-2 text-sm";
         input.value = item.value;
         input.dataset.originalValue = item.originalValue || "";
         input.maxLength = config.maxLength;
@@ -544,11 +544,44 @@
         removeButton.dataset.index = String(index);
         removeButton.textContent = "삭제";
 
-        row.append(input, removeButton);
+        const moveButtons = [-1, 1].map((direction) => {
+          const button = document.createElement("button");
+          const label = direction < 0 ? "위로" : "아래로";
+          button.type = "button";
+          button.className = "list-editor-move shrink-0 px-2 py-2 border rounded-lg text-xs text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed";
+          button.dataset.index = String(index);
+          button.dataset.direction = String(direction);
+          button.textContent = direction < 0 ? "↑" : "↓";
+          button.setAttribute("aria-label", `${config.label} 항목 ${index + 1} ${label}`);
+          button.title = label;
+          button.disabled = direction < 0 ? index === 0 : index === items.length - 1;
+          return button;
+        });
+
+        row.append(input, ...moveButtons, removeButton);
         fragment.appendChild(row);
       });
       $("listEditorRows").replaceChildren(fragment);
       updateListEditorHistoryHelp();
+    }
+
+    function moveListEditorItem(index, direction) {
+      syncListEditorStateFromDom();
+      const targetIndex = index + direction;
+      if (!Number.isInteger(index) || ![-1, 1].includes(direction) ||
+          index < 0 || index >= listEditorItemsState.length ||
+          targetIndex < 0 || targetIndex >= listEditorItemsState.length) return;
+      [listEditorItemsState[index], listEditorItemsState[targetIndex]] =
+        [listEditorItemsState[targetIndex], listEditorItemsState[index]];
+      renderListEditorRows();
+      showListEditorError();
+      const moveButton = $("listEditorRows").querySelector(
+        '.list-editor-move[data-index="' + targetIndex + '"][data-direction="' + direction + '"]'
+      );
+      // Keep keyboard focus on the moved item, even at the list boundary.
+      const focusTarget = moveButton && !moveButton.disabled ? moveButton :
+        $("listEditorRows").querySelectorAll(".list-editor-item")[targetIndex];
+      focusTarget?.focus();
     }
 
     function openListEditor(type) {
@@ -557,7 +590,7 @@
       activeListType = type;
       listEditorItemsState = getEffectiveList(type).map((value) => ({ value, originalValue: value }));
       $("listEditorTitle").textContent = `${config.label} 목록 편집`;
-      $("listEditorSubtitle").textContent = `추가·삭제·이름 수정을 한 뒤 목록 저장을 누르세요.`;
+      $("listEditorSubtitle").textContent = `↑·↓ 버튼으로 순서를 바꾸거나 항목을 편집한 뒤 목록 저장을 누르세요.`;
       $("listEditorNewItem").value = "";
       $("listEditorNewItem").maxLength = config.maxLength;
       $("listEditorUpdateHistory").checked = false;
@@ -1687,6 +1720,11 @@
         showListEditorError();
       });
       $("listEditorRows").addEventListener("click", (event) => {
+        const moveButton = event.target.closest(".list-editor-move");
+        if (moveButton) {
+          moveListEditorItem(Number(moveButton.dataset.index), Number(moveButton.dataset.direction));
+          return;
+        }
         const button = event.target.closest(".list-editor-remove");
         if (!button) return;
         syncListEditorStateFromDom();
