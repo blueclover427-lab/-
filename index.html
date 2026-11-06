@@ -402,6 +402,8 @@
     let listEditorItemsState = [];
     let editingId = null;
     let editingGroupId = null;
+    let editBaseline = null;
+    let editReturnPosition = null;
     let categoryChart = null;
     let categoryDonutChart = null;
     let trendChart = null;
@@ -967,7 +969,61 @@
       };
     }
 
+    function editFormSnapshot() {
+      const installment = $("fInstallment").value === "yes";
+      return JSON.stringify({
+        date: $("fDate").value,
+        category: $("fCategory").value,
+        place: $("fPlace").value.trim(),
+        method: $("fMethod").value,
+        amount: parseMoney($("fAmount").value),
+        memo: $("fMemo").value.trim(),
+        installment,
+        months: installment ? $("fInstallmentMonths").value : "",
+        interestFree: installment && $("fInterestFree").checked,
+        fee: installment && !$("fInterestFree").checked ? parseMoney($("fInstallmentFee").value) : 0
+      });
+    }
+
+    function hasUnsavedEdit() {
+      return editBaseline !== null && editFormSnapshot() !== editBaseline;
+    }
+
+    function confirmDiscardEdit() {
+      return !hasUnsavedEdit() || confirm("저장하지 않은 수정사항이 있습니다. 변경사항을 버리시겠습니까?");
+    }
+
+    function updateEditingRows() {
+      $("tableBody").querySelectorAll("tr[data-entry-id]").forEach((tr) => {
+        const active = tr.dataset.entryId === editingId ||
+          (editingGroupId !== null && tr.dataset.installmentGroupId === editingGroupId);
+        tr.className = active ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-slate-50";
+        if (active) tr.setAttribute("aria-current", "true");
+        else tr.removeAttribute("aria-current");
+        const button = tr.querySelector(".edit-btn");
+        if (button) button.textContent = active ? "수정 중" : "수정";
+      });
+    }
+
+    function finishEditing() {
+      const position = editReturnPosition;
+      resetForm();
+      if (!position) return;
+      requestAnimationFrame(() => {
+        const row = Array.from($("tableBody").querySelectorAll("tr[data-entry-id]"))
+          .find((tr) => tr.dataset.entryId === position.id);
+        const top = row ? window.scrollY + row.getBoundingClientRect().top - position.top : position.scrollY;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      });
+    }
+
+    function cancelEditing() {
+      if (confirmDiscardEdit()) finishEditing();
+    }
+
     function exitEditMode() {
+      editBaseline = null;
+      editReturnPosition = null;
       editingId = null;
       editingGroupId = null;
       $("formTitle").textContent = "새 지출 입력";
@@ -975,6 +1031,7 @@
       $("editBadge").classList.add("hidden");
       $("btnCancelEdit").classList.add("hidden");
       $("submitBtn").textContent = "저장하기";
+      updateEditingRows();
     }
 
     function resetForm() {
@@ -993,6 +1050,10 @@
     }
 
     function enterEditMode(row) {
+      if (!confirmDiscardEdit()) return;
+      const listRow = Array.from($("tableBody").querySelectorAll("tr[data-entry-id]"))
+        .find((tr) => tr.dataset.entryId === row.id);
+      editReturnPosition = { id: row.id, top: listRow ? listRow.getBoundingClientRect().top : 0, scrollY: window.scrollY };
       const isInstallment = row.installment === true && row.installmentGroupId;
       const groupRows = isInstallment ? getInstallmentGroupRows(row.installmentGroupId) : [];
       const source = groupRows[0] || row;
@@ -1031,6 +1092,8 @@
       }
 
       syncInstallmentFields();
+      editBaseline = editFormSnapshot();
+      updateEditingRows();
       $("formTitle").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
@@ -1270,6 +1333,8 @@
       rows.forEach((row) => {
         const tr = document.createElement("tr");
         tr.className = "hover:bg-slate-50";
+        tr.dataset.entryId = row.id;
+        tr.dataset.installmentGroupId = row.installmentGroupId || "";
         tr.append(
           makeCell(row.date || "-", "px-2 py-1 whitespace-nowrap"),
           makeCell(row.category || "-", "px-2 py-1 whitespace-nowrap"),
@@ -1301,6 +1366,7 @@
       });
 
       tbody.replaceChildren(fragment);
+      updateEditingRows();
     }
 
     function renderMethodSummary(rows) {
@@ -1634,7 +1700,7 @@
           });
           await update(entriesRef, updates);
         }
-        resetForm();
+        finishEditing();
       } catch (error) {
         console.error(error);
         alert(`저장 실패: ${error.message}`);
@@ -1683,6 +1749,11 @@
     }
 
     function bindAppEvents() {
+      window.addEventListener("beforeunload", (event) => {
+        if (!hasUnsavedEdit()) return;
+        event.preventDefault();
+        event.returnValue = "";
+      });
       $("fAmount").addEventListener("input", (event) => {
         setMoneyInput(event.target, event.target.value);
         updateInstallmentPreview();
@@ -1695,8 +1766,8 @@
         updateInstallmentPreview();
       });
       $("monthlyBudget").addEventListener("input", (event) => setMoneyInput(event.target, event.target.value));
-      $("btnReset").addEventListener("click", resetForm);
-      $("btnCancelEdit").addEventListener("click", resetForm);
+      $("btnReset").addEventListener("click", cancelEditing);
+      $("btnCancelEdit").addEventListener("click", cancelEditing);
       $("entryForm").addEventListener("submit", submitEntry);
       $("tableBody").addEventListener("click", handleTableClick);
       $("fPlace").addEventListener("input", handlePlaceInput);
@@ -1779,6 +1850,7 @@
       });
 
       $("logoutBtn").addEventListener("click", async () => {
+        if (!confirmDiscardEdit()) return;
         try {
           await signOut(auth);
         } catch (error) {
@@ -1867,8 +1939,7 @@
         currentRows = [];
         currentBudgets = {};
         currentLists = { categories: null, methods: null };
-        editingId = null;
-        editingGroupId = null;
+        exitEditMode();
         closeListEditor();
         $("authSection").classList.remove("hidden");
         $("appSection").classList.add("hidden");
