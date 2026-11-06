@@ -86,7 +86,7 @@
 
       <section class="bg-white rounded-xl shadow p-4 space-y-4">
         <div class="flex justify-between items-center">
-          <h2 id="formTitle" class="text-sm font-bold text-slate-800">새 지출 입력</h2>
+          <h2 id="formTitle" class="text-sm font-bold text-slate-800 scroll-mt-4">새 지출 입력</h2>
           <span id="editBadge" class="hidden text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-700">수정 모드</span>
         </div>
 
@@ -1031,7 +1031,7 @@
       }
 
       syncInstallmentFields();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      $("formTitle").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function buildPeriodOptions(rows, type) {
