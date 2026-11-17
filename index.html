@@ -441,21 +441,26 @@
       return result;
     }
 
+    const PRIVATE_CATEGORY = "개인용";
+    const canViewPersonal = () => auth.currentUser?.email?.toLowerCase() === "blueclover427@gmail.com";
+    const visibleCategory = (value) => value !== PRIVATE_CATEGORY || canViewPersonal();
+
     function getEffectiveList(type) {
       const config = LIST_CONFIG[type];
       if (!config) return [];
-      if (currentLists[type] !== null) {
-        return normalizeManagedList(currentLists[type], config.maxLength);
-      }
       const historical = currentRows.map((row) => row[config.historyKey]);
-      return normalizeManagedList([...config.defaults, ...historical], config.maxLength);
+      const values = normalizeManagedList(currentLists[type] !== null ? currentLists[type] : [...config.defaults, ...historical], config.maxLength);
+      if (type !== "categories") return values;
+      const shared = values.filter((value) => value !== PRIVATE_CATEGORY);
+      return canViewPersonal() ? [...shared, PRIVATE_CATEGORY] : shared;
     }
 
     function fillManagedSelect(type, preferredValue = null) {
       const config = LIST_CONFIG[type];
       if (!config) return;
       const select = $(config.selectId);
-      const current = preferredValue !== null ? String(preferredValue || "") : select.value;
+      let current = preferredValue !== null ? String(preferredValue || "") : select.value;
+      if (type === "categories" && !visibleCategory(current)) current = "";
       const values = getEffectiveList(type);
       select.replaceChildren(createOption("", config.placeholder), ...values.map((value) => createOption(value)));
       if (current && !values.includes(current)) {
@@ -650,6 +655,12 @@
         return;
       }
 
+      if (activeListType === "categories" && listEditorItemsState.some((item) =>
+        (item.originalValue === PRIVATE_CATEGORY && item.value !== PRIVATE_CATEGORY) ||
+        (item.value === PRIVATE_CATEGORY && item.originalValue !== PRIVATE_CATEGORY))) {
+        showListEditorError("개인용은 전용 카테고리로 이름 변경 및 일반 항목에서의 전환이 불가능합니다.");
+        return;
+      }
       const renames = getListEditorRenames();
       const shouldUpdateHistory = $("listEditorUpdateHistory").checked && renames.length > 0;
       const impact = getHistoryRenameImpact(renames);
@@ -667,7 +678,7 @@
       try {
         const now = Date.now();
         const updates = {
-          [`ledgerSettings/lists/${activeListType}`]: values,
+          [`ledgerSettings/lists/${activeListType}`]: activeListType === "categories" ? values.filter((value) => value !== PRIVATE_CATEGORY) : values,
           "ledgerSettings/updatedAt": now,
           "ledgerSettings/updatedBy": user.uid
         };
@@ -1638,6 +1649,11 @@
         memo: $("fMemo").value.trim()
       };
 
+      if (!visibleCategory(payload.category)) {
+        alert("개인용 카테고리를 사용할 수 없는 계정입니다.");
+        return;
+      }
+
       if (!payload.date || !payload.place || !payload.method || payload.amount <= 0) {
         alert("날짜 / 지출처 / 결제수단 / 금액을 확인해주세요.");
         return;
@@ -1893,6 +1909,7 @@
         const data = snapshot.val() || {};
         currentRows = Object.entries(data)
           .map(([id, value]) => ({ id, ...value }))
+          .filter((row) => visibleCategory(row.category))
           .sort((a, b) => {
             if (a.date === b.date) return Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0);
             return String(a.date || "") < String(b.date || "") ? 1 : -1;
@@ -1932,6 +1949,10 @@
         $("appSection").classList.remove("hidden");
         $("userInfo").textContent = `로그인 계정: ${user.email || "-"}`;
         $("sync-status").textContent = "연결 중...";
+        currentRows = [];
+        resetForm();
+        refreshManagedSelects();
+        renderAll();
         startListeners();
       } else {
         stopListeners();
